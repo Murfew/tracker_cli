@@ -50,8 +50,7 @@ def log(
 
 
 def show_table(title: str, data: list[Any]) -> None:
-    table = Table(title)
-    table.add_column("Date", justify="center")
+    table = Table(title=title)
     table.add_column("Date", justify="center")
     table.add_column("Exercise", justify="left")
     table.add_column("Weight (lbs)", justify="right")
