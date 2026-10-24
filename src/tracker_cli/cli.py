@@ -4,6 +4,8 @@ from typing import Annotated
 
 import typer
 from rich import print
+from rich.console import Console
+from rich.table import Table
 
 from tracker_cli import db
 
@@ -65,4 +67,23 @@ def recent(
     View the most recent sets, newest first.
     """
     sets = db.get_sets(limit)
-    print(sets)
+
+    if not sets:
+        print("No sets logged yet.")
+    else:
+        console = Console()
+        table = Table(title=f"Most recent sets (showing {len(sets)})")
+        table.add_column("Date", justify="center")
+        table.add_column("Exercise", justify="left")
+        table.add_column("Weight (lbs)", justify="right")
+        table.add_column("Reps", justify="right")
+
+        for row in sets:
+            table.add_row(
+                str(row.day),
+                row.exercise_name.title(),
+                f"{row.weight:g}",
+                str(row.reps),
+            )
+
+        console.print(table)

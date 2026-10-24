@@ -1,4 +1,3 @@
-import re
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -22,7 +21,7 @@ def get_connection() -> Generator[sqlite3.Connection]:
 
 class SetRow(NamedTuple):
     id: int
-    name: str
+    exercise_name: str
     weight: float
     reps: int
     day: date
