@@ -1,11 +1,11 @@
 import os
-import re
 from datetime import datetime
 from typing import Annotated
 
 import typer
+from rich import print
 
-import tracker_cli.db as db
+from tracker_cli import db
 
 app = typer.Typer()
 
@@ -14,7 +14,7 @@ app = typer.Typer()
 def main(
     db_path: Annotated[str, typer.Option("--db", envvar="APP_DB_PATH")] = "app.db",
 ) -> None:
-    os.environ["MYTOOL_DB_PATH"] = db_path
+    os.environ["APP_DB_PATH"] = db_path
     db.init_db()
 
 
@@ -43,10 +43,7 @@ def log(
     name = name.lower().strip()
     day_as_date = day.date()
 
-    exercise = db.get_exercise(name)
-    if not exercise:
-        exercise = db.create_exercise(name)
-    db.create_set(weight, reps, day_as_date, exercise.id)
+    db.create_set(name, weight, reps, day_as_date)
 
 
 @app.command()
@@ -67,3 +64,5 @@ def recent(
     """
     View the most recent sets, newest first.
     """
+    sets = db.get_sets(limit)
+    print(sets)
