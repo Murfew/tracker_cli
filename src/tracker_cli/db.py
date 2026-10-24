@@ -1,12 +1,20 @@
 import sqlite3
+from collections.abc import Generator
+from contextlib import contextmanager
 
 from tracker_cli.config import get_db_path
 
 
-def get_connection() -> sqlite3.Connection:
+@contextmanager
+def get_connection() -> Generator[sqlite3.Connection]:
     conn = sqlite3.connect(get_db_path())
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
+
+    try:
+        with conn:
+            conn.execute("PRAGMA foreign_keys = ON;")
+            yield conn
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
@@ -19,7 +27,6 @@ def init_db() -> None:
                 );
             """
         )
-        conn.commit()
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS sets (
@@ -31,5 +38,3 @@ def init_db() -> None:
                 );
             """
         )
-        conn.commit()
-        conn.close()
