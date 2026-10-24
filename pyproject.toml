@@ -8,7 +8,7 @@ requires-python = ">=3.14"
 dependencies = ["typer>=0.27.3"]
 
 [project.scripts]
-tracker = "tracker_cli.main:app"
+tracker = "tracker_cli.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]
