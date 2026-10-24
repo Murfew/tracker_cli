@@ -50,9 +50,17 @@ def create_set(name: str, weight: float, reps: int, day: date) -> None:
         )
 
 
-def get_sets(limit: int) -> list[SetRow]:
+def get_recent_sets(limit: int) -> list[SetRow]:
     with get_connection() as conn:
         rows = conn.execute(
             "SELECT * FROM sets ORDER BY day DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [SetRow(*row) for row in rows]
+
+
+def get_weekly_sets(start: str, end: str) -> list[SetRow]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM sets WHERE day BETWEEN ? AND ?", (start, end)
         ).fetchall()
         return [SetRow(*row) for row in rows]
