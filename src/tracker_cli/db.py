@@ -1,6 +1,9 @@
+import re
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
+from datetime import date
+from typing import NamedTuple
 
 from tracker_cli.config import get_db_path
 
@@ -15,6 +18,19 @@ def get_connection() -> Generator[sqlite3.Connection]:
             yield conn
     finally:
         conn.close()
+
+
+class ExerciseRow(NamedTuple):
+    id: int
+    name: str
+
+
+class SetRow(NamedTuple):
+    id: int
+    weight: float
+    reps: int
+    day: date
+    exercise_id: int
 
 
 def init_db() -> None:
@@ -34,7 +50,29 @@ def init_db() -> None:
                 weight REAL NOT NULL,
                 reps INTEGER NOT NULL,
                 day DATE NOT NULL,
-                exercise_id INTEGER NOT NULL REFERENCES exercises(id)
+                exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE
                 );
             """
+        )
+
+
+def get_exercise(name: str) -> ExerciseRow | None:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM exercises WHERE name = ?", (name,)).fetchone()
+        return ExerciseRow(*row) if row else None
+
+
+def create_exercise(name: str) -> ExerciseRow:
+    with get_connection() as conn:
+        row = conn.execute(
+            "INSERT INTO exercises (name) VALUES (?) RETURNING id, name", (name,)
+        ).fetchone()
+        return ExerciseRow(*row)
+
+
+def create_set(weight: float, reps: int, day: date, exercise_id: int) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO sets (weight, reps, day, exercise_id) VALUES (?, ?, ?, ?)",
+            (weight, reps, day, exercise_id),
         )
