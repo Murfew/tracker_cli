@@ -1,6 +1,6 @@
 import os
-from datetime import datetime
-from typing import Annotated
+from datetime import datetime, timedelta
+from typing import Annotated, Any
 
 import typer
 from rich import print
@@ -10,6 +10,7 @@ from rich.table import Table
 from tracker_cli import db
 
 app = typer.Typer()
+console = Console()
 
 
 @app.callback()
@@ -48,6 +49,25 @@ def log(
     db.create_set(name, weight, reps, day_as_date)
 
 
+def show_table(title: str, data: list[Any]) -> None:
+    table = Table(title)
+    table.add_column("Date", justify="center")
+    table.add_column("Date", justify="center")
+    table.add_column("Exercise", justify="left")
+    table.add_column("Weight (lbs)", justify="right")
+    table.add_column("Reps", justify="right")
+
+    for row in data:
+        table.add_row(
+            str(row.day),
+            row.exercise_name.title(),
+            f"{row.weight:g}",
+            str(row.reps),
+        )
+
+    console.print(table)
+
+
 @app.command()
 def week() -> None:
     """
@@ -57,6 +77,35 @@ def week() -> None:
     summed across all sets of an exercise. Best set is the
     heaviest weight lifted, with ties broken by most reps.
     """
+    today = datetime.now().astimezone().date()
+    start_of_week = today - timedelta(days=today.weekday())
+    end_of_week = start_of_week + timedelta(days=6)
+
+    sets = db.get_weekly_sets(str(start_of_week), str(end_of_week))
+
+    if not sets:
+        print("No sets logged yet.")
+    else:
+        volume = sum(row.weight * row.reps for row in sets)
+        print("Weekly volume:", volume)
+
+        best: dict[str, db.SetRow] = {}
+        for row in sets:
+            if row.exercise_name not in best:
+                best[row.exercise_name] = row
+            else:
+                current_best = best[row.exercise_name]
+                if (
+                    current_best.weight == row.weight and current_best.reps < row.reps
+                ) or (current_best.weight < row.weight):
+                    best[row.exercise_name] = row
+                else:
+                    continue
+
+        show_table(
+            f"Best sets of the week ({start_of_week} to {end_of_week})",
+            list(best.values()),
+        )
 
 
 @app.command()
@@ -66,24 +115,9 @@ def recent(
     """
     View the most recent sets, newest first.
     """
-    sets = db.get_sets(limit)
+    sets = db.get_recent_sets(limit)
 
     if not sets:
         print("No sets logged yet.")
     else:
-        console = Console()
-        table = Table(title=f"Most recent sets (showing {len(sets)})")
-        table.add_column("Date", justify="center")
-        table.add_column("Exercise", justify="left")
-        table.add_column("Weight (lbs)", justify="right")
-        table.add_column("Reps", justify="right")
-
-        for row in sets:
-            table.add_row(
-                str(row.day),
-                row.exercise_name.title(),
-                f"{row.weight:g}",
-                str(row.reps),
-            )
-
-        console.print(table)
+        show_table(f"Most recent sets (showing {len(sets)})", sets)
