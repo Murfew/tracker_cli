@@ -33,7 +33,7 @@ def init_db() -> None:
             """
             CREATE TABLE IF NOT EXISTS sets (
                 id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
                 weight REAL NOT NULL,
                 reps INTEGER NOT NULL,
                 day DATE NOT NULL
