@@ -20,7 +20,6 @@ def get_connection() -> Generator[sqlite3.Connection]:
 
 
 class SetRow(NamedTuple):
-    id: int
     exercise_name: str
     weight: float
     reps: int
@@ -53,14 +52,22 @@ def create_set(name: str, weight: float, reps: int, day: date) -> None:
 def get_recent_sets(limit: int) -> list[SetRow]:
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM sets ORDER BY day DESC LIMIT ?", (limit,)
+            "SELECT name, weight, reps, day FROM sets ORDER BY day DESC, id DESC LIMIT ?",
+            (limit,),
         ).fetchall()
-        return [SetRow(*row) for row in rows]
+        return [_to_set_row(row) for row in rows]
 
 
 def get_weekly_sets(start: str, end: str) -> list[SetRow]:
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM sets WHERE day BETWEEN ? AND ?", (start, end)
+            "SELECT name, weight, reps, day FROM sets WHERE day BETWEEN ? AND ?",
+            (start, end),
         ).fetchall()
-        return [SetRow(*row) for row in rows]
+        return [_to_set_row(row) for row in rows]
+
+
+def _to_set_row(row: tuple[str, float, int, str]) -> SetRow:
+    name, weight, reps, day = row
+    day_as_date = date.fromisoformat(day)
+    return SetRow(name, weight, reps, day_as_date)
