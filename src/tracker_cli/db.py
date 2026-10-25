@@ -45,7 +45,7 @@ def create_set(name: str, weight: float, reps: int, day: date) -> None:
     with get_connection() as conn:
         conn.execute(
             "INSERT INTO sets (name, weight, reps, day) VALUES (?, ?, ?, ?)",
-            (name, weight, reps, day),
+            (name, weight, reps, day.isoformat()),
         )
 
 
