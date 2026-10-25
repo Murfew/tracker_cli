@@ -1,6 +1,9 @@
 from datetime import date
+from pathlib import Path
+from typing import Protocol
 
 import pytest
+from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from tracker_cli import db
@@ -10,8 +13,35 @@ runner = CliRunner()
 
 
 @pytest.fixture(autouse=True)
-def temp_db(tmp_path, monkeypatch):
+def temp_db(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("APP_DB_PATH", str(tmp_path / "test.db"))
+
+
+class AddSet(Protocol):
+    def __call__(
+        self,
+        name: str = ...,
+        weight: float = ...,
+        reps: int = ...,
+        day: date | None = ...,
+    ) -> None: ...
+
+
+@pytest.fixture
+def add_set(temp_db: None) -> AddSet:
+    db.init_db()
+
+    def _add_set(
+        name: str = "bench press",
+        weight: float = 185,
+        reps: int = 12,
+        day: date | None = None,
+    ) -> None:
+        if day is None:
+            day = date.today()  # noqa: DTZ011
+        db.create_set(name, weight, reps, day)
+
+    return _add_set
 
 
 class TestLog:
@@ -165,11 +195,13 @@ class TestWeek:
 
 
 class TestRecent:
-    @pytest.mark.skip
-    def test_prints_fallback_message_when_no_sets_logged(self): ...
+    def test_prints_fallback_message_when_no_sets_logged(self):
+        result = runner.invoke(app, ["recent"])
+        assert result.exit_code == 0
+        assert "No sets logged yet." in result.output
 
     @pytest.mark.skip
-    def test_shows_newest_first_across_different_days(self): ...
+    def test_shows_newest_first_across_different_days(self, add_set: AddSet): ...
 
     @pytest.mark.skip
     def test_shows_newest_first_on_same_day(self): ...

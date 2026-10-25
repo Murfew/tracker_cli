@@ -79,3 +79,4 @@ warn_required_dynamic_aliases = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+disallow_incomplete_defs = false
