@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 from rich import print
@@ -49,7 +49,7 @@ def log(
     db.create_set(name, weight, reps, day_as_date)
 
 
-def show_table(title: str, data: list[Any]) -> None:
+def show_table(title: str, data: list[db.SetRow]) -> None:
     table = Table(title=title)
     table.add_column("Date", justify="center")
     table.add_column("Exercise", justify="left")
