@@ -1,7 +1,7 @@
 [project]
 name = "tracker-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "Log workout sets from the terminal and see your weekly volume and best lifts."
 readme = "README.md"
 authors = [{ name = "Murfew", email = "matthew.hurley953@gmail.com" }]
 requires-python = ">=3.14"
