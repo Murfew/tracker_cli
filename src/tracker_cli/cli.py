@@ -15,8 +15,19 @@ console = Console()
 
 @app.callback()
 def main(
-    db_path: Annotated[str, typer.Option("--db", envvar="APP_DB_PATH")] = "app.db",
+    db_path: Annotated[
+        str,
+        typer.Option(
+            "--db",
+            envvar="APP_DB_PATH",
+            help="Path to the SQLite database file. Put it before the command.",
+        ),
+    ] = "app.db",
 ) -> None:
+    """
+    Track your lifts from the terminal.
+    """
+
     os.environ["APP_DB_PATH"] = db_path
     db.init_db()
 
@@ -29,7 +40,7 @@ def log(
             help='Exercise name, e.g. "bench press". Quote names with spaces.'
         ),
     ],
-    weight: Annotated[float, typer.Option(help="Weight in lbs.")],
+    weight: Annotated[float, typer.Option(help="Weight lifted, in lbs.")],
     reps: Annotated[int, typer.Option(help="Number of reps.")],
     day: Annotated[
         datetime,
@@ -37,31 +48,38 @@ def log(
             formats=["%Y-%m-%d"],
             default_factory=datetime.now,
             help="Date the set was done. Defaults to today.",
+            show_default=False,
         ),
     ],
 ) -> None:
     """
-    Record a set for an exercise.
+    Log one set: exercise, weight and reps.
     """
     name = name.lower().strip()
     day_as_date = day.date()
 
     db.create_set(name, weight, reps, day_as_date)
 
+    print(f"[green]✓[/green] Logged {name.title()}: {weight:g} lbs × {reps}")  # noqa: RUF001
+
 
 def show_table(title: str, data: list[db.SetRow]) -> None:
+    """
+    Print sets as a table with exercise, weight, reps and date columns.
+    """
+
     table = Table(title=title)
-    table.add_column("Date", justify="center")
-    table.add_column("Exercise", justify="left")
+    table.add_column("Exercise", justify="left", style="cyan")
     table.add_column("Weight (lbs)", justify="right")
     table.add_column("Reps", justify="right")
+    table.add_column("Date", justify="center")
 
     for row in data:
         table.add_row(
-            str(row.day),
             row.exercise_name.title(),
             f"{row.weight:g}",
             str(row.reps),
+            f"{row.day.strftime('%a %b %-d')}",
         )
 
     console.print(table)
@@ -70,7 +88,7 @@ def show_table(title: str, data: list[db.SetRow]) -> None:
 @app.command()
 def week() -> None:
     """
-    See this week's volume and best set per exercise.
+    Show this week's volume and best set per exercise.
 
     The week runs Monday to Sunday. Volume is weight x reps,
     summed across all sets of an exercise. Best set is the
@@ -83,10 +101,10 @@ def week() -> None:
     sets = db.get_weekly_sets(str(start_of_week), str(end_of_week))
 
     if not sets:
-        print("No sets logged yet.")
+        print("No sets logged this week yet.")
     else:
         volume = sum(row.weight * row.reps for row in sets)
-        print("Weekly volume:", volume)
+        print(f"Total volume this week: [bold]{volume:,g}[/bold] lbs")
 
         best: dict[str, db.SetRow] = {}
         for row in sets:
@@ -102,7 +120,7 @@ def week() -> None:
                     continue
 
         show_table(
-            f"Best sets of the week ({start_of_week} to {end_of_week})",
+            f"Best sets · {start_of_week.strftime('%b %-d')} – {end_of_week.strftime('%b %-d')}",  # noqa: RUF001
             list(best.values()),
         )
 
@@ -112,11 +130,11 @@ def recent(
     limit: Annotated[int, typer.Option(help="Number of sets to show.")] = 10,
 ) -> None:
     """
-    View the most recent sets, newest first.
+    Show your most recent sets, newest first.
     """
     sets = db.get_recent_sets(limit)
 
     if not sets:
         print("No sets logged yet.")
     else:
-        show_table(f"Most recent sets (showing {len(sets)})", sets)
+        show_table(f"Last {len(sets)} set{'s' if len(sets) != 1 else ''}", sets)
