@@ -60,14 +60,14 @@ def get_output_table_rows(table: str) -> list[list[str]]:
 
 
 class TestLog:
-    def test_prints_success_message(self):
+    def test_prints_success_message(self) -> None:
         result = runner.invoke(
             app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
         )
         assert result.exit_code == 0
         assert "✓ Logged Bench Press: 185 lbs × 8" in result.output  # noqa: RUF001
 
-    def test_set_is_saved(self):
+    def test_set_is_saved(self) -> None:
         result = runner.invoke(
             app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
         )
@@ -83,7 +83,7 @@ class TestLog:
     @pytest.mark.parametrize(
         "messy_name", ["   bench press   ", "BeNCh PResS", "  bEncH prESs  "]
     )
-    def test_exercise_name_is_normalized(self, messy_name: str):
+    def test_exercise_name_is_normalized(self, messy_name: str) -> None:
         result = runner.invoke(
             app, ["log", messy_name, "--weight", "185", "--reps", "8"]
         )
@@ -95,7 +95,7 @@ class TestLog:
         last_set = db_rows[0]
         assert last_set.exercise_name == "bench press"
 
-    def test_date_is_saved_when_day_option_provided(self):
+    def test_date_is_saved_when_day_option_provided(self) -> None:
         result = runner.invoke(
             app,
             [
@@ -117,7 +117,7 @@ class TestLog:
         last_set = db_rows[0]
         assert last_set.day == date.fromisoformat("2026-10-25")
 
-    def test_day_defaults_to_today(self):
+    def test_day_defaults_to_today(self) -> None:
         result = runner.invoke(
             app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
         )
@@ -139,7 +139,7 @@ class TestLog:
             "2026-02-29",
         ],
     )
-    def test_rejects_bad_date_format(self, bad_date: str):
+    def test_rejects_bad_date_format(self, bad_date: str) -> None:
         result = runner.invoke(
             app,
             [
@@ -179,7 +179,9 @@ class TestLog:
             ),
         ],
     )
-    def test_rejects_missing_required_option(self, missing: str, cli_args: list[str]):
+    def test_rejects_missing_required_option(
+        self, missing: str, cli_args: list[str]
+    ) -> None:
         result = runner.invoke(app, cli_args)
         assert result.exit_code == 2
         assert f"Missing option '{missing}'." in result.output
@@ -189,14 +191,14 @@ class TestWeek:
     TODAY = date.today()  # noqa: DTZ011
     START_OF_WEEK = TODAY - timedelta(days=TODAY.weekday())
 
-    def test_prints_fallback_message_when_no_sets_logged(self):
+    def test_prints_fallback_message_when_no_sets_logged(self) -> None:
         result = runner.invoke(app, ["week"])
         assert result.exit_code == 0
         assert "No sets logged this week" in result.output
 
     def test_prints_fallback_message_when_no_sets_logged_this_week(
         self, add_set: AddSet
-    ):
+    ) -> None:
         add_set(day=self.TODAY - timedelta(days=14))
 
         result = runner.invoke(app, ["week"])
@@ -222,7 +224,7 @@ class TestWeek:
     )
     def test_includes_set_logged_within_week_boundaries(
         self, add_set: AddSet, log_date: date
-    ):
+    ) -> None:
         add_set(day=log_date)
 
         result = runner.invoke(app, ["week"])
@@ -246,7 +248,7 @@ class TestWeek:
     )
     def test_excludes_set_logged_outside_week_boundaries(
         self, add_set: AddSet, log_date: date
-    ):
+    ) -> None:
         add_set(day=log_date)
 
         result = runner.invoke(app, ["week"])
@@ -255,7 +257,9 @@ class TestWeek:
         rows = get_output_table_rows(result.output)
         assert rows == []
 
-    def test_volume_sums_weight_times_reps_across_all_exercises(self, add_set: AddSet):
+    def test_volume_sums_weight_times_reps_across_all_exercises(
+        self, add_set: AddSet
+    ) -> None:
         add_set(weight=100, reps=10)
         add_set(weight=100, reps=8)
         add_set(weight=100, reps=2)
@@ -280,7 +284,7 @@ class TestWeek:
         logged_first: tuple[int, int],
         logged_second: tuple[int, int],
         best: tuple[int, int],
-    ):
+    ) -> None:
         add_set(weight=logged_first[0], reps=logged_first[1])
         add_set(weight=logged_second[0], reps=logged_second[1])
 
@@ -297,7 +301,7 @@ class TestWeek:
             ]
         ]
 
-    def test_shows_best_set_for_each_exercise(self, add_set: AddSet):
+    def test_shows_best_set_for_each_exercise(self, add_set: AddSet) -> None:
         add_set(name="bench press", weight=200, reps=10)
         add_set(name="bench press", weight=200, reps=8)
 
@@ -315,12 +319,12 @@ class TestWeek:
 
 
 class TestRecent:
-    def test_prints_fallback_message_when_no_sets_logged(self):
+    def test_prints_fallback_message_when_no_sets_logged(self) -> None:
         result = runner.invoke(app, ["recent"])
         assert result.exit_code == 0
         assert "No sets logged yet." in result.output
 
-    def test_shows_newest_first_across_different_days(self, add_set: AddSet):
+    def test_shows_newest_first_across_different_days(self, add_set: AddSet) -> None:
         add_set(name="bench press", day=date.fromisoformat("2026-10-25"))
         add_set(name="squat", day=date.fromisoformat("2026-10-24"))
         add_set(name="shoulder press", day=date.fromisoformat("2026-10-26"))
@@ -331,7 +335,7 @@ class TestRecent:
         names = [row[0] for row in get_output_table_rows(result.output)]
         assert names == ["Shoulder Press", "Bench Press", "Squat"]
 
-    def test_shows_newest_first_on_same_day(self, add_set: AddSet):
+    def test_shows_newest_first_on_same_day(self, add_set: AddSet) -> None:
         add_set(name="bench press")
         add_set(name="squat")
         add_set(name="shoulder press")
@@ -342,7 +346,7 @@ class TestRecent:
         names = [row[0] for row in get_output_table_rows(result.output)]
         assert names == ["Shoulder Press", "Squat", "Bench Press"]
 
-    def test_limit_option_shows_only_newest_n_sets(self, add_set: AddSet):
+    def test_limit_option_shows_only_newest_n_sets(self, add_set: AddSet) -> None:
         add_set(name="bench press")
         add_set(name="squat")
         add_set(name="shoulder press")
@@ -356,7 +360,7 @@ class TestRecent:
     @pytest.mark.parametrize("limit, title", [(1, "Last 1 set"), (2, "Last 2 sets")])
     def test_table_title_matches_set_count(
         self, add_set: AddSet, limit: int, title: str
-    ):
+    ) -> None:
         add_set(name="bench press")
         add_set(name="squat")
         add_set(name="shoulder press")
