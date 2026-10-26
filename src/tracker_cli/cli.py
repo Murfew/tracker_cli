@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Annotated
 
 import typer
@@ -94,7 +94,7 @@ def week() -> None:
     summed across all sets. Best set is the
     heaviest weight lifted, with ties broken by most reps.
     """
-    today = datetime.now().astimezone().date()
+    today = date.today()  # noqa: DTZ011
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
 
