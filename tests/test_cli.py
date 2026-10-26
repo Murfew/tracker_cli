@@ -68,7 +68,7 @@ class TestLog:
     @pytest.mark.parametrize(
         "messy_name", ["   bench press   ", "BeNCh PResS", "  bEncH prESs  "]
     )
-    def test_exercise_name_is_normalized(self, messy_name):
+    def test_exercise_name_is_normalized(self, messy_name: str):
         result = runner.invoke(
             app, ["log", messy_name, "--weight", "185", "--reps", "8"]
         )
@@ -124,7 +124,7 @@ class TestLog:
             "2026-02-29",
         ],
     )
-    def test_rejects_bad_date_format(self, bad_date):
+    def test_rejects_bad_date_format(self, bad_date: str):
         result = runner.invoke(
             app,
             [
@@ -164,7 +164,7 @@ class TestLog:
             ),
         ],
     )
-    def test_rejects_missing_required_option(self, missing, cli_args):
+    def test_rejects_missing_required_option(self, missing: str, cli_args: list[str]):
         result = runner.invoke(app, cli_args)
         assert result.exit_code == 2
         assert f"Missing option '{missing}'." in result.output
@@ -200,15 +200,55 @@ class TestRecent:
         assert result.exit_code == 0
         assert "No sets logged yet." in result.output
 
-    @pytest.mark.skip
-    def test_shows_newest_first_across_different_days(self, add_set: AddSet): ...
+    def test_shows_newest_first_across_different_days(self, add_set: AddSet):
+        add_set(name="bench press", day=date.fromisoformat("2026-10-25"))
+        add_set(name="squat", day=date.fromisoformat("2026-10-24"))
+        add_set(name="shoulder press", day=date.fromisoformat("2026-10-26"))
 
-    @pytest.mark.skip
-    def test_shows_newest_first_on_same_day(self): ...
+        result = runner.invoke(app, ["recent"])
+        assert result.exit_code == 0
 
-    @pytest.mark.skip
-    def test_limit_option_shows_only_newest_n_sets(self): ...
+        bench_press = result.output.index("Bench Press")
+        squat = result.output.index("Squat")
+        shoulder_press = result.output.index("Shoulder Press")
+        assert shoulder_press < bench_press < squat
 
-    # Parametrize (with 1 set or with multiple sets)
-    @pytest.mark.skip
-    def test_table_title_matches_set_count(self): ...
+    def test_shows_newest_first_on_same_day(self, add_set: AddSet):
+        add_set(name="bench press")
+        add_set(name="squat")
+        add_set(name="shoulder press")
+
+        result = runner.invoke(app, ["recent"])
+        assert result.exit_code == 0
+
+        bench_press = result.output.index("Bench Press")
+        squat = result.output.index("Squat")
+        shoulder_press = result.output.index("Shoulder Press")
+        assert shoulder_press < squat < bench_press
+
+    def test_limit_option_shows_only_newest_n_sets(self, add_set: AddSet):
+        add_set(name="bench press")
+        add_set(name="squat")
+        add_set(name="shoulder press")
+
+        result = runner.invoke(app, ["recent", "--limit", "2"])
+        assert result.exit_code == 0
+
+        squat = result.output.index("Squat")
+        shoulder_press = result.output.index("Shoulder Press")
+        assert shoulder_press < squat
+        assert "Bench Press" not in result.output
+
+    @pytest.mark.parametrize("limit, title", [(1, "Last 1 set"), (2, "Last 2 sets")])
+    def test_table_title_matches_set_count(
+        self, add_set: AddSet, limit: int, title: str
+    ):
+        add_set(name="bench press")
+        add_set(name="squat")
+        add_set(name="shoulder press")
+
+        result = runner.invoke(app, ["recent", "--limit", str(limit)])
+        assert result.exit_code == 0
+
+        title_line = result.output.splitlines()[0].strip()
+        assert title_line == title
