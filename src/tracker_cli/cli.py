@@ -91,7 +91,7 @@ def week() -> None:
     Show this week's volume and best set per exercise.
 
     The week runs Monday to Sunday. Volume is weight x reps,
-    summed across all sets of an exercise. Best set is the
+    summed across all sets. Best set is the
     heaviest weight lifted, with ties broken by most reps.
     """
     today = datetime.now().astimezone().date()
