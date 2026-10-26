@@ -328,10 +328,8 @@ class TestRecent:
         result = runner.invoke(app, ["recent"])
         assert result.exit_code == 0
 
-        bench_press = result.output.index("Bench Press")
-        squat = result.output.index("Squat")
-        shoulder_press = result.output.index("Shoulder Press")
-        assert shoulder_press < bench_press < squat
+        names = [row[0] for row in get_output_table_rows(result.output)]
+        assert names == ["Shoulder Press", "Bench Press", "Squat"]
 
     def test_shows_newest_first_on_same_day(self, add_set: AddSet):
         add_set(name="bench press")
@@ -341,10 +339,8 @@ class TestRecent:
         result = runner.invoke(app, ["recent"])
         assert result.exit_code == 0
 
-        bench_press = result.output.index("Bench Press")
-        squat = result.output.index("Squat")
-        shoulder_press = result.output.index("Shoulder Press")
-        assert shoulder_press < squat < bench_press
+        names = [row[0] for row in get_output_table_rows(result.output)]
+        assert names == ["Shoulder Press", "Squat", "Bench Press"]
 
     def test_limit_option_shows_only_newest_n_sets(self, add_set: AddSet):
         add_set(name="bench press")
@@ -354,10 +350,8 @@ class TestRecent:
         result = runner.invoke(app, ["recent", "--limit", "2"])
         assert result.exit_code == 0
 
-        squat = result.output.index("Squat")
-        shoulder_press = result.output.index("Shoulder Press")
-        assert shoulder_press < squat
-        assert "Bench Press" not in result.output
+        names = [row[0] for row in get_output_table_rows(result.output)]
+        assert names == ["Shoulder Press", "Squat"]
 
     @pytest.mark.parametrize("limit, title", [(1, "Last 1 set"), (2, "Last 2 sets")])
     def test_table_title_matches_set_count(
