@@ -23,36 +23,46 @@ line-length = 88
 [tool.ruff.lint]
 select = [
     "E",
-    "W",
-    "F",
-    "I",
-    "N",
-    "UP",
-    "B",
-    "C4",
-    "SIM",
-    "RET",
-    "PIE",
-    "PTH",
-    "PERF",
-    "ARG",
-    "DTZ",
-    "S",
-    "T20",
-    "ERA",
-    "TRY",
-    "ASYNC",
-    "FAST",
-    "PL",
-    "RUF",
+    "W",     # pycodestyle: PEP 8 basics every reviewer expects
+    "F",     # pyflakes: real mistakes like unused imports and undefined names
+    "I",     # isort: consistent import order, no merge-conflict churn
+    "N",     # pep8-naming: snake_case/PascalCase so names read as Python
+    "UP",    # pyupgrade: modern syntax (list[int], X | None) for my Python version
+    "B",     # bugbear: likely bugs like mutable default arguments
+    "C4",    # comprehensions: cleaner, faster list/dict/set building
+    "SIM",   # simplify: more Pythonic idioms in place of clunky if/else
+    "RET",   # return: no else after return, no pointless temp variables
+    "PIE",   # misc: removes dead or unnecessary code
+    "PTH",   # pathlib: Path over os.path, the modern standard
+    "PERF",  # performance: catches slow loop patterns
+    "ARG",   # unused arguments: often a leftover or a bug
+    "DTZ",   # datetimez: no naive datetimes; set dates must compare correctly
+    "S",     # bandit: security, e.g. SQL built with f-strings (use ? placeholders)
+    "T20",   # print: user output goes through Typer, debugging through logging
+    "ERA",   # commented-out code: git keeps history, so delete it
+    "TRY",   # exceptions: narrow try blocks, proper raising and logging
+    "ASYNC", # async pitfalls: blocking calls in async code (for later services)
+    "FAST",  # FastAPI rules: unused here, ready for the coach
+    "PL",    # pylint subset: code smells like magic numbers and too many branches
+    "RUF",   # Ruff's own rules, including stale noqa comments
 ]
-ignore = ["E501", "TRY003", "PLR0913", "COM812", "ISC001"]
+ignore = [
+    "E501",    # line length: ruff format already wraps lines
+    "TRY003",  # long exception messages: custom classes for each is overkill
+    "PLR0913", # too many arguments: noisy with Typer options and DI
+    "COM812",
+    "ISC001",  # conflict with ruff format, per Ruff's own docs
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "PLR2004", "ARG"]
+"tests/**" = [
+    "S101",    # pytest is built on assert
+    "PLR2004", # magic numbers are normal in expected values
+    "ARG",     # fixtures look like unused arguments
+]
 
 [tool.ruff.lint.isort]
-known-first-party = ["tracker_cli"]
+known-first-party = ["tracker"]
 
 [tool.ruff.format]
 docstring-code-format = true
