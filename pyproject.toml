@@ -19,10 +19,11 @@ dev = ["mypy>=2.4.0", "pydantic>=2.14.1", "pytest>=9.1.1", "ruff>=0.17.2"]
 
 [tool.ruff]
 line-length = 88
+src = ["src"]
 
 [tool.ruff.lint]
 select = [
-    "E",
+    "E",     # pycodestyle: PEP 8 basics every reviewer expects
     "W",     # pycodestyle: PEP 8 basics every reviewer expects
     "F",     # pyflakes: real mistakes like unused imports and undefined names
     "I",     # isort: consistent import order, no merge-conflict churn
@@ -50,7 +51,7 @@ ignore = [
     "E501",    # line length: ruff format already wraps lines
     "TRY003",  # long exception messages: custom classes for each is overkill
     "PLR0913", # too many arguments: noisy with Typer options and DI
-    "COM812",
+    "COM812",  # conflict with ruff format, per Ruff's own docs
     "ISC001",  # conflict with ruff format, per Ruff's own docs
 ]
 
@@ -61,8 +62,6 @@ ignore = [
     "ARG",     # fixtures look like unused arguments
 ]
 
-[tool.ruff.lint.isort]
-known-first-party = ["tracker"]
 
 [tool.ruff.format]
 docstring-code-format = true
