@@ -1,4 +1,5 @@
-from datetime import date
+import re
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Protocol
 
@@ -42,6 +43,20 @@ def add_set(temp_db: None) -> AddSet:
         db.create_set(name, weight, reps, day)
 
     return _add_set
+
+
+def get_output_table_rows(table: str) -> list[list[str]]:
+    return [
+        [
+            item
+            for item in map(
+                str.strip, re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", line).split("│")
+            )
+            if item
+        ]
+        for line in table.splitlines()
+        if "│" in line
+    ]
 
 
 class TestLog:
@@ -112,7 +127,7 @@ class TestLog:
         assert len(db_rows) == 1
 
         last_set = db_rows[0]
-        assert last_set.day == date.today()  # noqa: DTZ011
+        assert last_set.day == datetime.now().astimezone().date().today()
 
     @pytest.mark.parametrize(
         "bad_date",
@@ -171,27 +186,132 @@ class TestLog:
 
 
 class TestWeek:
-    @pytest.mark.skip
-    def test_prints_fallback_message_when_no_sets_logged(self): ...
+    TODAY = date.today()  # noqa: DTZ011
+    START_OF_WEEK = TODAY - timedelta(days=TODAY.weekday())
 
-    @pytest.mark.skip
-    def test_prints_fallback_message_when_no_sets_logged_this_week(self): ...
+    def test_prints_fallback_message_when_no_sets_logged(self):
+        result = runner.invoke(app, ["week"])
+        assert result.exit_code == 0
+        assert "No sets logged this week" in result.output
 
-    @pytest.mark.skip
-    def test_includes_set_logged_this_monday(self): ...
+    def test_prints_fallback_message_when_no_sets_logged_this_week(
+        self, add_set: AddSet
+    ):
+        add_set(day=self.TODAY - timedelta(days=14))
 
-    @pytest.mark.skip
-    def test_excludes_set_logged_last_sunday(self): ...
+        result = runner.invoke(app, ["week"])
+        assert result.exit_code == 0
+        assert "No sets logged this week" in result.output
 
-    @pytest.mark.skip
-    def test_volume_sums_weight_times_reps_across_all_exercises(self): ...
+    @pytest.mark.parametrize(
+        "log_date",
+        [
+            pytest.param(
+                START_OF_WEEK,
+                id="includes_this_monday",
+            ),
+            pytest.param(
+                START_OF_WEEK + timedelta(days=3),
+                id="includes_this_thursday",
+            ),
+            pytest.param(
+                START_OF_WEEK + timedelta(days=6),
+                id="includes_this_sunday",
+            ),
+        ],
+    )
+    def test_includes_set_logged_within_week_boundaries(
+        self, add_set: AddSet, log_date: date
+    ):
+        add_set(day=log_date)
 
-    # Parametrize (chooses heavier set logged later, chooses more reps when weight is equal, keeps best set when lighter set logged after)
-    @pytest.mark.skip
-    def test_best_set_selection(self): ...
+        result = runner.invoke(app, ["week"])
+        assert result.exit_code == 0
 
-    @pytest.mark.skip
-    def test_shows_best_set_for_each_exercise(self): ...
+        rows = get_output_table_rows(result.output)
+        assert rows == [["Bench Press", "185", "12", log_date.strftime("%a %b %-d")]]
+
+    @pytest.mark.parametrize(
+        "log_date",
+        [
+            pytest.param(
+                START_OF_WEEK + timedelta(days=7),
+                id="excludes_next_monday",
+            ),
+            pytest.param(
+                START_OF_WEEK - timedelta(days=1),
+                id="excludes_last_sunday",
+            ),
+        ],
+    )
+    def test_excludes_set_logged_outside_week_boundaries(
+        self, add_set: AddSet, log_date: date
+    ):
+        add_set(day=log_date)
+
+        result = runner.invoke(app, ["week"])
+        assert result.exit_code == 0
+
+        rows = get_output_table_rows(result.output)
+        assert rows == []
+
+    def test_volume_sums_weight_times_reps_across_all_exercises(self, add_set: AddSet):
+        add_set(weight=100, reps=10)
+        add_set(weight=100, reps=8)
+        add_set(weight=100, reps=2)
+
+        result = runner.invoke(app, ["week"])
+        assert result.exit_code == 0
+        assert "Total volume this week: 2,000 lbs" in result.output
+
+    @pytest.mark.parametrize(
+        "logged_first, logged_second, best",
+        [
+            pytest.param((100, 10), (200, 5), (200, 5), id="heavier_set_second"),
+            pytest.param(
+                (100, 10), (100, 12), (100, 12), id="using_reps_as_tie_breaker"
+            ),
+            pytest.param((200, 5), (100, 10), (200, 5), id="lighter_set_second"),
+        ],
+    )
+    def test_best_set_selection(
+        self,
+        add_set: AddSet,
+        logged_first: tuple[int, int],
+        logged_second: tuple[int, int],
+        best: tuple[int, int],
+    ):
+        add_set(weight=logged_first[0], reps=logged_first[1])
+        add_set(weight=logged_second[0], reps=logged_second[1])
+
+        result = runner.invoke(app, ["week"])
+        assert result.exit_code == 0
+
+        rows = get_output_table_rows(result.output)
+        assert rows == [
+            [
+                "Bench Press",
+                str(best[0]),
+                str(best[1]),
+                self.TODAY.strftime("%a %b %-d"),
+            ]
+        ]
+
+    def test_shows_best_set_for_each_exercise(self, add_set: AddSet):
+        add_set(name="bench press", weight=200, reps=10)
+        add_set(name="bench press", weight=200, reps=8)
+
+        add_set(name="squat", weight=400, reps=10)
+        add_set(name="squat", weight=400, reps=8)
+
+        result = runner.invoke(app, ["week"])
+        assert result.exit_code == 0
+
+        rows = get_output_table_rows(result.output)
+        assert rows == [
+            ["Bench Press", "200", "10", self.TODAY.strftime("%a %b %-d")],
+            ["Squat", "400", "10", self.TODAY.strftime("%a %b %-d")],
+        ]
 
 
 class TestRecent:
