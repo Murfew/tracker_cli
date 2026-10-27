@@ -4,12 +4,10 @@ from contextlib import contextmanager
 from datetime import date
 from typing import NamedTuple
 
-from tracker_cli.config import get_db_path
-
 
 @contextmanager
-def get_connection() -> Generator[sqlite3.Connection]:
-    conn = sqlite3.connect(get_db_path())
+def get_connection(db_path: str) -> Generator[sqlite3.Connection]:
+    conn = sqlite3.connect(db_path)
 
     try:
         with conn:
@@ -26,8 +24,8 @@ class SetRow(NamedTuple):
     day: date
 
 
-def init_db() -> None:
-    with get_connection() as conn:
+def init_db(db_path: str) -> None:
+    with get_connection(db_path) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS sets (
@@ -41,16 +39,16 @@ def init_db() -> None:
         )
 
 
-def create_set(name: str, weight: float, reps: int, day: date) -> None:
-    with get_connection() as conn:
+def create_set(db_path: str, name: str, weight: float, reps: int, day: date) -> None:
+    with get_connection(db_path) as conn:
         conn.execute(
             "INSERT INTO sets (name, weight, reps, day) VALUES (?, ?, ?, ?)",
             (name, weight, reps, day.isoformat()),
         )
 
 
-def get_recent_sets(limit: int) -> list[SetRow]:
-    with get_connection() as conn:
+def get_recent_sets(db_path: str, limit: int) -> list[SetRow]:
+    with get_connection(db_path) as conn:
         rows = conn.execute(
             "SELECT name, weight, reps, day FROM sets ORDER BY day DESC, id DESC LIMIT ?",
             (limit,),
@@ -58,8 +56,8 @@ def get_recent_sets(limit: int) -> list[SetRow]:
         return [_to_set_row(row) for row in rows]
 
 
-def get_weekly_sets(start: str, end: str) -> list[SetRow]:
-    with get_connection() as conn:
+def get_weekly_sets(db_path: str, start: str, end: str) -> list[SetRow]:
+    with get_connection(db_path) as conn:
         rows = conn.execute(
             "SELECT name, weight, reps, day FROM sets WHERE day BETWEEN ? AND ?",
             (start, end),

@@ -14,8 +14,10 @@ runner = CliRunner()
 
 
 @pytest.fixture(autouse=True)
-def temp_db(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setenv("APP_DB_PATH", str(tmp_path / "test.db"))
+def temp_db(tmp_path: Path, monkeypatch: MonkeyPatch) -> str:
+    db_path = str(tmp_path / "test.db")
+    monkeypatch.setenv("APP_DB_PATH", db_path)
+    return db_path
 
 
 class AddSet(Protocol):
@@ -29,8 +31,8 @@ class AddSet(Protocol):
 
 
 @pytest.fixture
-def add_set(temp_db: None) -> AddSet:
-    db.init_db()
+def add_set(temp_db: str) -> AddSet:
+    db.init_db(temp_db)
 
     def _add_set(
         name: str = "bench press",
@@ -40,7 +42,7 @@ def add_set(temp_db: None) -> AddSet:
     ) -> None:
         if day is None:
             day = date.today()  # noqa: DTZ011
-        db.create_set(name, weight, reps, day)
+        db.create_set(temp_db, name, weight, reps, day)
 
     return _add_set
 
@@ -67,13 +69,13 @@ class TestLog:
         assert result.exit_code == 0
         assert "✓ Logged Bench Press: 185 lbs × 8" in result.output  # noqa: RUF001
 
-    def test_set_is_saved(self) -> None:
+    def test_set_is_saved(self, temp_db: str) -> None:
         result = runner.invoke(
             app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
         )
         assert result.exit_code == 0
 
-        db_rows = db.get_recent_sets(1)
+        db_rows = db.get_recent_sets(temp_db, 1)
         assert len(db_rows) == 1
 
         last_set = db_rows[0]
@@ -83,19 +85,19 @@ class TestLog:
     @pytest.mark.parametrize(
         "messy_name", ["   bench press   ", "BeNCh PResS", "  bEncH prESs  "]
     )
-    def test_exercise_name_is_normalized(self, messy_name: str) -> None:
+    def test_exercise_name_is_normalized(self, messy_name: str, temp_db: str) -> None:
         result = runner.invoke(
             app, ["log", messy_name, "--weight", "185", "--reps", "8"]
         )
         assert result.exit_code == 0
 
-        db_rows = db.get_recent_sets(1)
+        db_rows = db.get_recent_sets(temp_db, 1)
         assert len(db_rows) == 1
 
         last_set = db_rows[0]
         assert last_set.exercise_name == "bench press"
 
-    def test_date_is_saved_when_day_option_provided(self) -> None:
+    def test_date_is_saved_when_day_option_provided(self, temp_db: str) -> None:
         result = runner.invoke(
             app,
             [
@@ -111,19 +113,19 @@ class TestLog:
         )
         assert result.exit_code == 0
 
-        db_rows = db.get_recent_sets(1)
+        db_rows = db.get_recent_sets(temp_db, 1)
         assert len(db_rows) == 1
 
         last_set = db_rows[0]
         assert last_set.day == date.fromisoformat("2026-10-25")
 
-    def test_day_defaults_to_today(self) -> None:
+    def test_day_defaults_to_today(self, temp_db: str) -> None:
         result = runner.invoke(
             app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
         )
         assert result.exit_code == 0
 
-        db_rows = db.get_recent_sets(1)
+        db_rows = db.get_recent_sets(temp_db, 1)
         assert len(db_rows) == 1
 
         last_set = db_rows[0]

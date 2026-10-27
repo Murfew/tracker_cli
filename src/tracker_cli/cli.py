@@ -1,6 +1,5 @@
-import os
 from datetime import date, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, NamedTuple
 
 import typer
 from rich import print
@@ -13,54 +12,8 @@ app = typer.Typer()
 console = Console()
 
 
-@app.callback()
-def main(
-    db_path: Annotated[
-        str,
-        typer.Option(
-            "--db",
-            envvar="APP_DB_PATH",
-            help="Path to the SQLite database file. Put it before the command.",
-        ),
-    ] = "app.db",
-) -> None:
-    """
-    Track your lifts from the terminal.
-    """
-
-    os.environ["APP_DB_PATH"] = db_path
-    db.init_db()
-
-
-@app.command()
-def log(
-    name: Annotated[
-        str,
-        typer.Argument(
-            help='Exercise name, e.g. "bench press". Quote names with spaces.'
-        ),
-    ],
-    weight: Annotated[float, typer.Option(help="Weight lifted, in lbs.")],
-    reps: Annotated[int, typer.Option(help="Number of reps.")],
-    day: Annotated[
-        datetime,
-        typer.Option(
-            formats=["%Y-%m-%d"],
-            default_factory=datetime.now,
-            help="Date the set was done. Defaults to today.",
-            show_default=False,
-        ),
-    ],
-) -> None:
-    """
-    Log one set: exercise, weight and reps.
-    """
-    name = name.lower().strip()
-    day_as_date = day.date()
-
-    db.create_set(name, weight, reps, day_as_date)
-
-    print(f"[green]✓[/green] Logged {name.title()}: {weight:g} lbs × {reps}")  # noqa: RUF001
+class CliConfig(NamedTuple):
+    db_path: str
 
 
 def show_table(title: str, data: list[db.SetRow]) -> None:
@@ -85,8 +38,73 @@ def show_table(title: str, data: list[db.SetRow]) -> None:
     console.print(table)
 
 
+def _as_cli_config(value: object) -> CliConfig:
+    """
+    Return the CLI config stored on the Typer context, failing loudly if it's missing.
+    """
+    if not isinstance(value, CliConfig):
+        raise TypeError(f"expected CliConfig, got {type(value).__name__}")
+    return value
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    db_path: Annotated[
+        str,
+        typer.Option(
+            "--db",
+            envvar="APP_DB_PATH",
+            help="Path to the SQLite database file. Put it before the command.",
+        ),
+    ] = "app.db",
+) -> None:
+    """
+    Track your lifts from the terminal.
+    """
+    ctx.obj = CliConfig(db_path)
+
+    db.init_db(db_path)
+
+
 @app.command()
-def week() -> None:
+def log(
+    ctx: typer.Context,
+    name: Annotated[
+        str,
+        typer.Argument(
+            help='Exercise name, e.g. "bench press". Quote names with spaces.'
+        ),
+    ],
+    weight: Annotated[float, typer.Option(help="Weight lifted, in lbs.")],
+    reps: Annotated[int, typer.Option(help="Number of reps.")],
+    day: Annotated[
+        datetime,
+        typer.Option(
+            formats=["%Y-%m-%d"],
+            default_factory=datetime.now,
+            help="Date the set was done. Defaults to today.",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """
+    Log one set: exercise, weight and reps.
+    """
+    config = _as_cli_config(ctx.obj)
+
+    name = name.lower().strip()
+    day_as_date = day.date()
+
+    db.create_set(config.db_path, name, weight, reps, day_as_date)
+
+    print(f"[green]✓[/green] Logged {name.title()}: {weight:g} lbs × {reps}")  # noqa: RUF001
+
+
+@app.command()
+def week(
+    ctx: typer.Context,
+) -> None:
     """
     Show this week's volume and best set per exercise.
 
@@ -94,11 +112,13 @@ def week() -> None:
     summed across all sets. Best set is the
     heaviest weight lifted, with ties broken by most reps.
     """
+    config = _as_cli_config(ctx.obj)
+
     today = date.today()  # noqa: DTZ011
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
 
-    sets = db.get_weekly_sets(str(start_of_week), str(end_of_week))
+    sets = db.get_weekly_sets(config.db_path, str(start_of_week), str(end_of_week))
 
     if not sets:
         print("No sets logged this week yet.")
@@ -127,12 +147,15 @@ def week() -> None:
 
 @app.command()
 def recent(
+    ctx: typer.Context,
     limit: Annotated[int, typer.Option(help="Number of sets to show.")] = 10,
 ) -> None:
     """
     Show your most recent sets, newest first.
     """
-    sets = db.get_recent_sets(limit)
+    config = _as_cli_config(ctx.obj)
+
+    sets = db.get_recent_sets(config.db_path, limit)
 
     if not sets:
         print("No sets logged yet.")
