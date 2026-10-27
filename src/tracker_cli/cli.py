@@ -9,6 +9,9 @@ from rich.table import Table
 from tracker_cli import db
 
 app = typer.Typer()
+exercises_app = typer.Typer(help="Manage the exercises you can log sets for.")
+app.add_typer(exercises_app, name="exercise")
+
 console = Console()
 
 
@@ -67,6 +70,35 @@ def main(
     db.init_db(db_path)
 
 
+@exercises_app.command()
+def add(
+    ctx: typer.Context,
+    name: Annotated[
+        str,
+        typer.Argument(
+            help='Exercise name, e.g. "bench press". Quote names with spaces.'
+        ),
+    ],
+) -> None:
+    """
+    Register an exercise so you can log sets for it. Names ignore letter case.
+    """
+    config = _as_cli_config(ctx.obj)
+    name = name.lower().strip()
+
+    if name == "":
+        print("[red]×[/red] Exercise name cannot be empty.")  # noqa: RUF001
+        raise typer.Exit(1)
+
+    is_exercise_created = db.create_exercise(config.db_path, name)
+
+    if is_exercise_created:
+        print(f"[green]✓[/green] Added {name.title()}. You can now log sets for it.")
+    else:
+        print(f"[red]×[/red] {name.title()} is already registered.")  # noqa: RUF001
+        raise typer.Exit(1)
+
+
 @app.command()
 def log(
     ctx: typer.Context,
@@ -93,10 +125,7 @@ def log(
     """
     config = _as_cli_config(ctx.obj)
 
-    name = name.lower().strip()
-    day_as_date = day.date()
-
-    db.create_set(config.db_path, name, weight, reps, day_as_date)
+    db.create_set(config.db_path, name.lower().strip(), weight, reps, day.date())
 
     print(f"[green]✓[/green] Logged {name.title()}: {weight:g} lbs × {reps}")  # noqa: RUF001
 

@@ -17,6 +17,7 @@ runner = CliRunner()
 def temp_db(tmp_path: Path, monkeypatch: MonkeyPatch) -> str:
     db_path = str(tmp_path / "test.db")
     monkeypatch.setenv("APP_DB_PATH", db_path)
+    db.init_db(db_path)
     return db_path
 
 
@@ -59,6 +60,60 @@ def get_output_table_rows(table: str) -> list[list[str]]:
         for line in table.splitlines()
         if "│" in line
     ]
+
+
+class TestExerciseAdd:
+    def test_prints_success_messsage_with_title_cased_name(self) -> None:
+        result = runner.invoke(app, ["exercise", "add", "Bench Press"])
+        assert result.exit_code == 0
+        assert "✓ Added Bench Press. You can now log sets for it." in result.output
+
+    @pytest.mark.parametrize(
+        "name", ["bench press", "   bench press   ", "BeNCh PResS", "  bEncH prESs  "]
+    )
+    def test_exerise_is_saved_with_normalized_name(
+        self, temp_db: str, name: str
+    ) -> None:
+        exercises_before = db.get_exercises(temp_db)
+        assert len(exercises_before) == 0
+
+        result = runner.invoke(app, ["exercise", "add", name])
+        assert result.exit_code == 0
+
+        exercises_after = db.get_exercises(temp_db)
+        assert len(exercises_after) == 1
+        assert exercises_after[0].name == "bench press"
+
+    @pytest.mark.parametrize(
+        "duplicate",
+        ["bench press", "   bench press   ", "BeNCh PResS", "  bEncH prESs  "],
+    )
+    def test_rejects_duplicate_exercise(self, duplicate: str) -> None:
+        runner.invoke(app, ["exercise", "add", "bench press"])
+        result = runner.invoke(app, ["exercise", "add", duplicate])
+        assert result.exit_code == 1
+        assert "× Bench Press is already registered." in result.output  # noqa: RUF001
+
+    def test_duplicate_is_not_saved_twice(self, temp_db: str) -> None:
+        runner.invoke(app, ["exercise", "add", "bench press"])
+        exercises = db.get_exercises(temp_db)
+        assert len(exercises) == 1
+
+        result = runner.invoke(app, ["exercise", "add", "bench press"])
+        assert result.exit_code == 1
+
+        exercises = db.get_exercises(temp_db)
+        assert len(exercises) == 1
+
+    def test_rejects_missing_name(self) -> None:
+        result = runner.invoke(app, ["exercise", "add"])
+        assert result.exit_code == 2
+        assert "Missing argument 'name'." in result.output
+
+    def test_rejects_blank_name(self) -> None:
+        result = runner.invoke(app, ["exercise", "add", ""])
+        assert result.exit_code == 1
+        assert "× Exercise name cannot be empty." in result.output  # noqa: RUF001
 
 
 class TestLog:

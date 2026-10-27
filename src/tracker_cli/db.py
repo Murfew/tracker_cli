@@ -17,6 +17,14 @@ def get_connection(db_path: str) -> Generator[sqlite3.Connection]:
         conn.close()
 
 
+class ExerciseRow(NamedTuple):
+    name: str
+
+
+def _to_exercise_row(row: tuple[str]) -> ExerciseRow:
+    return ExerciseRow(*row)
+
+
 class SetRow(NamedTuple):
     exercise_name: str
     weight: float
@@ -24,8 +32,23 @@ class SetRow(NamedTuple):
     day: date
 
 
+def _to_set_row(row: tuple[str, float, int, str]) -> SetRow:
+    name, weight, reps, day = row
+    day_as_date = date.fromisoformat(day)
+    return SetRow(name, weight, reps, day_as_date)
+
+
 def init_db(db_path: str) -> None:
     with get_connection(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS exercises (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL UNIQUE COLLATE NOCASE CHECK (name == TRIM(name))
+            );
+            """
+        )
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS sets (
@@ -37,6 +60,22 @@ def init_db(db_path: str) -> None:
                 );
             """
         )
+
+
+def create_exercise(db_path: str, name: str) -> bool:
+    with get_connection(db_path) as conn:
+        try:
+            conn.execute("INSERT INTO exercises (name) VALUES (?)", (name,))
+        except sqlite3.IntegrityError:
+            return False
+        else:
+            return True
+
+
+def get_exercises(db_path: str) -> list[ExerciseRow]:
+    with get_connection(db_path) as conn:
+        rows = conn.execute("SELECT name FROM exercises").fetchall()
+        return [_to_exercise_row(row) for row in rows]
 
 
 def create_set(db_path: str, name: str, weight: float, reps: int, day: date) -> None:
@@ -63,9 +102,3 @@ def get_weekly_sets(db_path: str, start: str, end: str) -> list[SetRow]:
             (start, end),
         ).fetchall()
         return [_to_set_row(row) for row in rows]
-
-
-def _to_set_row(row: tuple[str, float, int, str]) -> SetRow:
-    name, weight, reps, day = row
-    day_as_date = date.fromisoformat(day)
-    return SetRow(name, weight, reps, day_as_date)
