@@ -1,12 +1,12 @@
 import re
-from datetime import date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Protocol
 
 import pytest
-from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
+import tracker_cli
 from tracker_cli import db
 from tracker_cli.cli import app
 
@@ -14,7 +14,7 @@ runner = CliRunner()
 
 
 @pytest.fixture(autouse=True)
-def temp_db(tmp_path: Path, monkeypatch: MonkeyPatch) -> str:
+def temp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     db_path = str(tmp_path / "test.db")
     monkeypatch.setenv("APP_DB_PATH", db_path)
     db.init_db(db_path)
@@ -32,7 +32,7 @@ class AddSet(Protocol):
 
 
 @pytest.fixture
-def add_set(temp_db: str) -> AddSet:
+def add_set(temp_db: str, fixed_today: date) -> AddSet:
     def _add_set(
         name: str = "bench press",
         weight: float = 185,
@@ -45,15 +45,22 @@ def add_set(temp_db: str) -> AddSet:
         assert exercise is not None
 
         if day is None:
-            day = date.today()  # noqa: DTZ011
+            day = fixed_today
         db.create_set(temp_db, weight, reps, day, exercise.id)
 
     return _add_set
 
 
-@pytest.fixture()
+@pytest.fixture
 def register_bench_press_exercise(temp_db: str) -> None:
     db.create_exercise(temp_db, "bench press")
+
+
+@pytest.fixture
+def fixed_today(monkeypatch: pytest.MonkeyPatch) -> date:
+    today = date.fromisoformat("2026-10-24")
+    monkeypatch.setattr(tracker_cli.cli, "get_today", lambda: today)
+    return today
 
 
 def get_output_table_rows(table: str) -> list[list[str]]:
@@ -100,7 +107,7 @@ class TestExerciseAdd:
         runner.invoke(app, ["exercise", "add", "bench press"])
         result = runner.invoke(app, ["exercise", "add", duplicate])
         assert result.exit_code == 1
-        assert "× Bench Press is already registered." in result.output  # noqa: RUF001
+        assert "× Bench Press is already registered." in result.output  # ruff: ignore[ambiguous-unicode-character-string]
 
     def test_duplicate_is_not_saved_twice(self, temp_db: str) -> None:
         runner.invoke(app, ["exercise", "add", "bench press"])
@@ -131,7 +138,7 @@ class TestLog:
             app, ["log", "bench press", "--weight", "185", "--reps", "8"]
         )
         assert result.exit_code == 0
-        assert "✓ Logged Bench Press: 185 lbs × 8" in result.output  # noqa: RUF001
+        assert "✓ Logged Bench Press: 185 lbs × 8" in result.output  # ruff: ignore[ambiguous-unicode-character-string]
 
     @pytest.mark.parametrize(
         "name", ["Bench Press", "   bench press   ", "BeNCh PResS", "  bEncH prESs  "]
@@ -169,7 +176,7 @@ class TestLog:
         last_set = db_rows[0]
         assert last_set.day == date.fromisoformat("2026-10-25")
 
-    def test_day_defaults_to_today(self, temp_db: str) -> None:
+    def test_day_defaults_to_today(self, temp_db: str, fixed_today: date) -> None:
         result = runner.invoke(
             app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
         )
@@ -179,7 +186,7 @@ class TestLog:
         assert len(db_rows) == 1
 
         last_set = db_rows[0]
-        assert last_set.day == datetime.now().astimezone().date().today()
+        assert last_set.day == fixed_today
 
     @pytest.mark.parametrize(
         "bad_date",
@@ -209,7 +216,7 @@ class TestLog:
         assert "Invalid value for '--day'" in result.output
 
     @pytest.mark.parametrize(
-        "missing, cli_args",
+        ("missing", "cli_args"),
         [
             (
                 "--weight",
@@ -241,7 +248,7 @@ class TestLog:
     def test_rejects_unknown_exercise(self) -> None:
         result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
         assert result.exit_code == 1
-        assert "× Exercise does not exist." in result.output  # noqa: RUF001
+        assert "× Exercise does not exist." in result.output  # ruff: ignore[ambiguous-unicode-character-string]
 
     def test_unknown_exercise_is_not_saved(self, temp_db: str) -> None:
         result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
@@ -285,18 +292,15 @@ class TestLog:
 
 
 class TestWeek:
-    TODAY = date.today()  # noqa: DTZ011
-    START_OF_WEEK = TODAY - timedelta(days=TODAY.weekday())
-
     def test_prints_fallback_message_when_no_sets_logged(self) -> None:
         result = runner.invoke(app, ["week"])
         assert result.exit_code == 0
         assert "No sets logged this week" in result.output
 
     def test_prints_fallback_message_when_no_sets_logged_this_week(
-        self, add_set: AddSet
+        self, add_set: AddSet, fixed_today: date
     ) -> None:
-        add_set(day=self.TODAY - timedelta(days=14))
+        add_set(day=date.fromisoformat("2026-10-11"))
 
         result = runner.invoke(app, ["week"])
         assert result.exit_code == 0
@@ -306,16 +310,16 @@ class TestWeek:
         "log_date",
         [
             pytest.param(
-                START_OF_WEEK,
-                id="includes_this_monday",
+                date.fromisoformat("2026-10-19"),
+                id="first_day_of_the_week",
             ),
             pytest.param(
-                START_OF_WEEK + timedelta(days=3),
-                id="includes_this_thursday",
+                date.fromisoformat("2026-10-22"),
+                id="midweek",
             ),
             pytest.param(
-                START_OF_WEEK + timedelta(days=6),
-                id="includes_this_sunday",
+                date.fromisoformat("2026-10-25"),
+                id="last_day_of_the_week",
             ),
         ],
     )
@@ -334,12 +338,12 @@ class TestWeek:
         "log_date",
         [
             pytest.param(
-                START_OF_WEEK + timedelta(days=7),
-                id="excludes_next_monday",
+                date.fromisoformat("2026-10-18"),
+                id="day_before_week_starts",
             ),
             pytest.param(
-                START_OF_WEEK - timedelta(days=1),
-                id="excludes_last_sunday",
+                date.fromisoformat("2026-10-26"),
+                id="day_after_week_ends",
             ),
         ],
     )
@@ -366,7 +370,7 @@ class TestWeek:
         assert "Total volume this week: 2,000 lbs" in result.output
 
     @pytest.mark.parametrize(
-        "logged_first, logged_second, best",
+        ("logged_first", "logged_second", "best"),
         [
             pytest.param((100, 10), (200, 5), (200, 5), id="heavier_set_second"),
             pytest.param(
@@ -378,6 +382,7 @@ class TestWeek:
     def test_best_set_selection(
         self,
         add_set: AddSet,
+        fixed_today: date,
         logged_first: tuple[int, int],
         logged_second: tuple[int, int],
         best: tuple[int, int],
@@ -394,11 +399,13 @@ class TestWeek:
                 "Bench Press",
                 str(best[0]),
                 str(best[1]),
-                self.TODAY.strftime("%a %b %-d"),
+                "Sat Oct 24",
             ]
         ]
 
-    def test_shows_best_set_for_each_exercise(self, add_set: AddSet) -> None:
+    def test_shows_best_set_for_each_exercise(
+        self, add_set: AddSet, fixed_today: date
+    ) -> None:
         add_set(name="bench press", weight=200, reps=10)
         add_set(name="bench press", weight=200, reps=8)
 
@@ -410,8 +417,8 @@ class TestWeek:
 
         rows = get_output_table_rows(result.output)
         assert rows == [
-            ["Bench Press", "200", "10", self.TODAY.strftime("%a %b %-d")],
-            ["Squat", "400", "10", self.TODAY.strftime("%a %b %-d")],
+            ["Bench Press", "200", "10", "Sat Oct 24"],
+            ["Squat", "400", "10", "Sat Oct 24"],
         ]
 
 
@@ -454,7 +461,9 @@ class TestRecent:
         names = [row[0] for row in get_output_table_rows(result.output)]
         assert names == ["Shoulder Press", "Squat"]
 
-    @pytest.mark.parametrize("limit, title", [(1, "Last 1 set"), (2, "Last 2 sets")])
+    @pytest.mark.parametrize(
+        ("limit", "title"), [(1, "Last 1 set"), (2, "Last 2 sets")]
+    )
     def test_table_title_matches_set_count(
         self, add_set: AddSet, limit: int, title: str
     ) -> None:
