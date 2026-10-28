@@ -1,6 +1,6 @@
 # tracker_cli
 
-A CLI workout tracker that lets you record a set, view your recent sets, and see this week's total volume and best set per exercise.
+A CLI workout tracker that lets you register exercises, record sets, view your recent sets, and see this week's total volume and best set per exercise.
 
 ```text
 $ uv run tracker week
@@ -32,11 +32,30 @@ uv sync
 uv run tracker --help
 ```
 
+Register an exercise before logging sets for it (once per exercise):
+
+```bash
+uv run tracker exercise add "bench press"
+```
+
+Exercise names ignore letter case, so `Bench Press` and `bench press` count as the same exercise.
+
 Log a set:
 
 ```bash
 uv run tracker log "bench press" --weight 185 --reps 8
 ```
+
+If you mistype an exercise name, the tracker suggests the closest registered one:
+
+```text
+$ uv run tracker log "bench pres" --weight 185 --reps 8
+× Exercise does not exist.
+Did you mean 'bench press'? [Y/n]: y
+✓ Logged Bench Press: 185 lbs × 8
+```
+
+Weight and reps can't be negative.
 
 Log a set for a past date:
 
@@ -56,13 +75,13 @@ See this week's total volume and best set per exercise:
 uv run tracker week
 ```
 
-Volume is weight × reps, summed across all sets. Your best set is your heaviest one, with ties going to the set with more reps.
+The week runs Monday to Sunday. Volume is weight × reps, summed across all sets. Your best set is your heaviest one, with ties going to the set with more reps.
 
 Run `uv run tracker <command> --help` for all options on a given command.
 
 ## Where your data lives
 
-Sets are stored in a local SQLite file, `app.db`, in the directory you run the command from.
+Exercises and sets are stored in a local SQLite file, `app.db`, in the directory you run the command from.
 To use a different file, pass `--db` before the command, or set `APP_DB_PATH`:
 
 ```bash
