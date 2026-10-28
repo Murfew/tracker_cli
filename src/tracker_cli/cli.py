@@ -19,7 +19,7 @@ class CliConfig(NamedTuple):
     db_path: str
 
 
-def show_table(title: str, data: list[db.SetRow]) -> None:
+def show_table(title: str, data: list[db.Set]) -> None:
     """
     Print sets as a table with exercise, weight, reps and date columns.
     """
@@ -90,13 +90,13 @@ def add(
         print("[red]×[/red] Exercise name cannot be empty.")  # noqa: RUF001
         raise typer.Exit(1)
 
-    is_exercise_created = db.create_exercise(config.db_path, name)
+    exercise = db.create_exercise(config.db_path, name)
 
-    if is_exercise_created:
-        print(f"[green]✓[/green] Added {name.title()}. You can now log sets for it.")
-    else:
+    if exercise is None:
         print(f"[red]×[/red] {name.title()} is already registered.")  # noqa: RUF001
         raise typer.Exit(1)
+
+    print(f"[green]✓[/green] Added {name.title()}. You can now log sets for it.")
 
 
 @app.command()
@@ -124,8 +124,18 @@ def log(
     Log one set: exercise, weight and reps.
     """
     config = _as_cli_config(ctx.obj)
+    name = name.lower().strip()
 
-    db.create_set(config.db_path, name.lower().strip(), weight, reps, day.date())
+    if name == "":
+        print("[red]×[/red] Exercise name cannot be empty.")  # noqa: RUF001
+        raise typer.Exit(1)
+
+    exercise = db.get_exercise_by_name(config.db_path, name)
+    if not exercise:
+        print("[red]×[/red] Exercise does not exist.")  # noqa: RUF001
+        raise typer.Exit(1)
+
+    db.create_set(config.db_path, weight, reps, day.date(), exercise.id)
 
     print(f"[green]✓[/green] Logged {name.title()}: {weight:g} lbs × {reps}")  # noqa: RUF001
 
@@ -155,7 +165,7 @@ def week(
         volume = sum(row.weight * row.reps for row in sets)
         print(f"Total volume this week: [bold]{volume:,g}[/bold] lbs")
 
-        best: dict[str, db.SetRow] = {}
+        best: dict[str, db.Set] = {}
         for row in sets:
             if row.exercise_name not in best:
                 best[row.exercise_name] = row

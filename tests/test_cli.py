@@ -33,19 +33,27 @@ class AddSet(Protocol):
 
 @pytest.fixture
 def add_set(temp_db: str) -> AddSet:
-    db.init_db(temp_db)
-
     def _add_set(
         name: str = "bench press",
         weight: float = 185,
         reps: int = 12,
         day: date | None = None,
     ) -> None:
+        exercise = db.create_exercise(temp_db, name)
+        if exercise is None:
+            exercise = db.get_exercise_by_name(temp_db, name)
+        assert exercise is not None
+
         if day is None:
             day = date.today()  # noqa: DTZ011
-        db.create_set(temp_db, name, weight, reps, day)
+        db.create_set(temp_db, weight, reps, day, exercise.id)
 
     return _add_set
+
+
+@pytest.fixture()
+def register_exercise(temp_db: str) -> None:
+    db.create_exercise(temp_db, "bench press")
 
 
 def get_output_table_rows(table: str) -> list[list[str]]:
@@ -64,7 +72,7 @@ def get_output_table_rows(table: str) -> list[list[str]]:
 
 class TestExerciseAdd:
     def test_prints_success_messsage_with_title_cased_name(self) -> None:
-        result = runner.invoke(app, ["exercise", "add", "Bench Press"])
+        result = runner.invoke(app, ["exercise", "add", "bench press"])
         assert result.exit_code == 0
         assert "✓ Added Bench Press. You can now log sets for it." in result.output
 
@@ -116,41 +124,28 @@ class TestExerciseAdd:
         assert "× Exercise name cannot be empty." in result.output  # noqa: RUF001
 
 
+@pytest.mark.usefixtures("register_exercise")
 class TestLog:
-    def test_prints_success_message(self) -> None:
+    def test_prints_success_message_with_title_cased_name(self) -> None:
         result = runner.invoke(
-            app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
+            app, ["log", "bench press", "--weight", "185", "--reps", "8"]
         )
         assert result.exit_code == 0
         assert "✓ Logged Bench Press: 185 lbs × 8" in result.output  # noqa: RUF001
 
-    def test_set_is_saved(self, temp_db: str) -> None:
-        result = runner.invoke(
-            app, ["log", "Bench Press", "--weight", "185", "--reps", "8"]
-        )
-        assert result.exit_code == 0
-
-        db_rows = db.get_recent_sets(temp_db, 1)
-        assert len(db_rows) == 1
-
-        last_set = db_rows[0]
-        assert last_set.weight == 185
-        assert last_set.reps == 8
-
     @pytest.mark.parametrize(
-        "messy_name", ["   bench press   ", "BeNCh PResS", "  bEncH prESs  "]
+        "name", ["Bench Press", "   bench press   ", "BeNCh PResS", "  bEncH prESs  "]
     )
-    def test_exercise_name_is_normalized(self, messy_name: str, temp_db: str) -> None:
-        result = runner.invoke(
-            app, ["log", messy_name, "--weight", "185", "--reps", "8"]
-        )
+    def test_set_is_saved_with_normalized_name(self, temp_db: str, name: str) -> None:
+        result = runner.invoke(app, ["log", name, "--weight", "185", "--reps", "8"])
         assert result.exit_code == 0
 
-        db_rows = db.get_recent_sets(temp_db, 1)
-        assert len(db_rows) == 1
+        sets = db.get_recent_sets(temp_db, 1)
+        assert len(sets) == 1
 
-        last_set = db_rows[0]
-        assert last_set.exercise_name == "bench press"
+        assert sets[0].weight == 185
+        assert sets[0].reps == 8
+        assert sets[0].exercise_name == "bench press"
 
     def test_date_is_saved_when_day_option_provided(self, temp_db: str) -> None:
         result = runner.invoke(
@@ -242,6 +237,23 @@ class TestLog:
         result = runner.invoke(app, cli_args)
         assert result.exit_code == 2
         assert f"Missing option '{missing}'." in result.output
+
+    def test_rejects_unknown_exercise(self) -> None:
+        result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
+        assert result.exit_code == 1
+        assert "× Exercise does not exist." in result.output  # noqa: RUF001
+
+    def test_unknown_exercise_is_not_saved(self, temp_db: str) -> None:
+        result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
+        assert result.exit_code == 1
+
+        sets = db.get_recent_sets(temp_db, 1)
+        assert len(sets) == 0
+
+    def test_rejects_blank_name(self) -> None:
+        result = runner.invoke(app, ["log", "", "--weight", "185", "--reps", "12"])
+        assert result.exit_code == 1
+        assert "× Exercise name cannot be empty." in result.output  # noqa: RUF001
 
 
 class TestWeek:
