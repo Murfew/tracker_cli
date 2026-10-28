@@ -1,3 +1,4 @@
+import difflib
 from datetime import date, datetime, timedelta
 from typing import Annotated, NamedTuple
 
@@ -130,14 +131,26 @@ def log(
         print("[red]×[/red] Exercise name cannot be empty.")  # noqa: RUF001
         raise typer.Exit(1)
 
-    exercise = db.get_exercise_by_name(config.db_path, name)
-    if not exercise:
+    exercises = db.get_exercises(config.db_path)
+    exercises_by_name = {exercise.name: exercise for exercise in exercises}
+
+    exercise = exercises_by_name.get(name)
+
+    if exercise is None:
+        matches = difflib.get_close_matches(
+            name, list(exercises_by_name.keys()), n=1, cutoff=0.6
+        )
+
         print("[red]×[/red] Exercise does not exist.")  # noqa: RUF001
-        raise typer.Exit(1)
+
+        if matches and typer.confirm(f"Did you mean '{matches[0]}'?", default=True):
+            exercise = exercises_by_name[matches[0]]
+        else:
+            raise typer.Exit(1)
 
     db.create_set(config.db_path, weight, reps, day.date(), exercise.id)
 
-    print(f"[green]✓[/green] Logged {name.title()}: {weight:g} lbs × {reps}")  # noqa: RUF001
+    print(f"[green]✓[/green] Logged {exercise.name.title()}: {weight:g} lbs × {reps}")  # noqa: RUF001
 
 
 @app.command()
