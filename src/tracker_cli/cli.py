@@ -71,7 +71,7 @@ def main(
     db.init_db(db_path)
 
 
-def non_negative_int(value: int) -> int:
+def non_negative_number(value: float) -> float:
     if value < 0:
         raise typer.BadParameter("Value must not be negative.")
     return value
@@ -119,10 +119,10 @@ def log(
         ),
     ],
     weight: Annotated[
-        float, typer.Option(callback=non_negative_int, help="Weight lifted, in lbs.")
+        float, typer.Option(callback=non_negative_number, help="Weight lifted, in lbs.")
     ],
     reps: Annotated[
-        int, typer.Option(callback=non_negative_int, help="Number of reps.")
+        int, typer.Option(callback=non_negative_number, help="Number of reps.")
     ],
     day: Annotated[
         datetime,

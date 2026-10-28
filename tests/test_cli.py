@@ -276,7 +276,7 @@ class TestLog:
 
     def test_rejects_negative_weight(self) -> None:
         result = runner.invoke(
-            app, ["log", "banch press", "--weight", "185", "--reps", "-10"]
+            app, ["log", "banch press", "--weight", "-185", "--reps", "10"]
         )
         assert result.exit_code == 2
         assert (
