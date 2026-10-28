@@ -280,7 +280,7 @@ class TestLog:
         )
         assert result.exit_code == 2
         assert (
-            "Invalid value for '--reps': Value must not be negative." in result.output
+            "Invalid value for '--weight': Value must not be negative." in result.output
         )
 
 
