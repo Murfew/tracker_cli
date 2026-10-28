@@ -71,13 +71,26 @@ def main(
     db.init_db(db_path)
 
 
+def non_negative_int(value: int) -> int:
+    if value < 0:
+        raise typer.BadParameter("Value must not be negative.")
+    return value
+
+
+def non_empty_lowercase_string(value: str) -> str:
+    if value.strip() == "":
+        raise typer.BadParameter("Value must not be empty.")
+    return value.lower().strip()
+
+
 @exercises_app.command()
 def add(
     ctx: typer.Context,
     name: Annotated[
         str,
         typer.Argument(
-            help='Exercise name, e.g. "bench press". Quote names with spaces.'
+            callback=non_empty_lowercase_string,
+            help='Exercise name, e.g. "bench press". Quote names with spaces.',
         ),
     ],
 ) -> None:
@@ -85,11 +98,6 @@ def add(
     Register an exercise so you can log sets for it. Names ignore letter case.
     """
     config = _as_cli_config(ctx.obj)
-    name = name.lower().strip()
-
-    if name == "":
-        print("[red]×[/red] Exercise name cannot be empty.")  # noqa: RUF001
-        raise typer.Exit(1)
 
     exercise = db.create_exercise(config.db_path, name)
 
@@ -106,11 +114,16 @@ def log(
     name: Annotated[
         str,
         typer.Argument(
-            help='Exercise name, e.g. "bench press". Quote names with spaces.'
+            callback=non_empty_lowercase_string,
+            help='Exercise name, e.g. "bench press". Quote names with spaces.',
         ),
     ],
-    weight: Annotated[float, typer.Option(help="Weight lifted, in lbs.")],
-    reps: Annotated[int, typer.Option(help="Number of reps.")],
+    weight: Annotated[
+        float, typer.Option(callback=non_negative_int, help="Weight lifted, in lbs.")
+    ],
+    reps: Annotated[
+        int, typer.Option(callback=non_negative_int, help="Number of reps.")
+    ],
     day: Annotated[
         datetime,
         typer.Option(
@@ -125,11 +138,6 @@ def log(
     Log one set: exercise, weight and reps.
     """
     config = _as_cli_config(ctx.obj)
-    name = name.lower().strip()
-
-    if name == "":
-        print("[red]×[/red] Exercise name cannot be empty.")  # noqa: RUF001
-        raise typer.Exit(1)
 
     exercises = db.get_exercises(config.db_path)
     exercises_by_name = {exercise.name: exercise for exercise in exercises}

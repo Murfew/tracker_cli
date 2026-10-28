@@ -120,8 +120,8 @@ class TestExerciseAdd:
 
     def test_rejects_blank_name(self) -> None:
         result = runner.invoke(app, ["exercise", "add", ""])
-        assert result.exit_code == 1
-        assert "× Exercise name cannot be empty." in result.output  # noqa: RUF001
+        assert result.exit_code == 2
+        assert "Invalid value for 'name': Value must not be empty." in result.output
 
 
 @pytest.mark.usefixtures("register_bench_press_exercise")
@@ -252,8 +252,8 @@ class TestLog:
 
     def test_rejects_blank_name(self) -> None:
         result = runner.invoke(app, ["log", "", "--weight", "185", "--reps", "12"])
-        assert result.exit_code == 1
-        assert "× Exercise name cannot be empty." in result.output  # noqa: RUF001
+        assert result.exit_code == 2
+        assert "Invalid value for 'name': Value must not be empty." in result.output
 
     def test_shows_suggestion_when_name_has_close_match(self) -> None:
         result = runner.invoke(
@@ -264,6 +264,24 @@ class TestLog:
     def test_does_not_show_suggestion_when_name_has_no_close_match(self) -> None:
         result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
         assert "Did you mean 'bench press'? [Y/n]" not in result.output
+
+    def test_rejects_negative_reps(self) -> None:
+        result = runner.invoke(
+            app, ["log", "banch press", "--weight", "185", "--reps", "-10"]
+        )
+        assert result.exit_code == 2
+        assert (
+            "Invalid value for '--reps': Value must not be negative." in result.output
+        )
+
+    def test_rejects_negative_weight(self) -> None:
+        result = runner.invoke(
+            app, ["log", "banch press", "--weight", "185", "--reps", "-10"]
+        )
+        assert result.exit_code == 2
+        assert (
+            "Invalid value for '--reps': Value must not be negative." in result.output
+        )
 
 
 class TestWeek:
