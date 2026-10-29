@@ -5,7 +5,10 @@ description = "Log workout sets from the terminal and see your weekly volume and
 readme = "README.md"
 authors = [{ name = "Murfew", email = "matthew.hurley953@gmail.com" }]
 requires-python = ">=3.14"
-dependencies = ["typer>=0.27.3"]
+dependencies = [
+    "rich>=15.0.0",
+    "typer>=0.27.3",
+]
 license = "MIT"               # SPDX string (PEP 639); pick one before publishing
 license-files = ["LICENSE"]
 keywords = ["cli", "fitness", "workout", "tracker"]
@@ -26,7 +29,12 @@ requires = ["uv_build>=0.12.19,<0.13.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = ["mypy>=2.4.0", "pydantic>=2.14.1", "pytest>=9.1.1", "ruff>=0.17.2"]
+dev = [
+    "mypy>=2.4.0",
+    "pydantic>=2.14.1",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
 
 # ─── Ruff ────────────────────────────────────────────────────────────────────
 

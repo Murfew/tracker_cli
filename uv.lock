@@ -439,6 +439,7 @@ name = "tracker-cli"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "rich" },
     { name = "typer" },
 ]
 
@@ -451,7 +452,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "typer", specifier = ">=0.27.3" }]
+requires-dist = [
+    { name = "rich", specifier = ">=15.0.0" },
+    { name = "typer", specifier = ">=0.27.3" },
+]
 
 [package.metadata.requires-dev]
 dev = [
