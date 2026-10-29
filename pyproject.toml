@@ -9,7 +9,7 @@ dependencies = [
     "rich>=15.0.0",
     "typer>=0.27.3",
 ]
-license = "MIT"               # SPDX string (PEP 639); pick one before publishing
+license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["cli", "fitness", "workout", "tracker"]
 classifiers = [
@@ -18,7 +18,7 @@ classifiers = [
     "Environment :: Console",
 ]
 
-# [project.urls]
+[project.urls]
 Repository = "https://github.com/Murfew/tracker_cli"
 
 [project.scripts]
@@ -33,6 +33,7 @@ dev = [
     "mypy>=2.4.0",
     "pydantic>=2.14.1",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
 ]
 
