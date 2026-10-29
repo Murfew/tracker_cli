@@ -12,6 +12,9 @@ from tracker_cli.cli import app
 
 runner = CliRunner()
 
+TODAY = date.fromisoformat("2026-10-24")
+BENCH_PRESS_SUGGESTION = "Did you mean 'bench press'? [Y/n]"
+
 
 @pytest.fixture(autouse=True)
 def temp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
@@ -19,6 +22,12 @@ def temp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     monkeypatch.setenv("APP_DB_PATH", db_path)
     db.init_db(db_path)
     return db_path
+
+
+@pytest.fixture(autouse=True)
+def wide_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("COLUMNS", "1000")
+    monkeypatch.setenv("TERMINAL_WIDTH", "1000")
 
 
 class AddSet(Protocol):
@@ -58,9 +67,8 @@ def register_bench_press_exercise(temp_db: str) -> None:
 
 @pytest.fixture
 def fixed_today(monkeypatch: pytest.MonkeyPatch) -> date:
-    today = date.fromisoformat("2026-10-24")
-    monkeypatch.setattr(tracker_cli.cli, "get_today", lambda: today)
-    return today
+    monkeypatch.setattr(tracker_cli.cli, "get_today", lambda: TODAY)
+    return TODAY
 
 
 def get_output_table_rows(table: str) -> list[list[str]]:
@@ -266,11 +274,11 @@ class TestLog:
         result = runner.invoke(
             app, ["log", "banch press", "--weight", "185", "--reps", "12"]
         )
-        assert "Did you mean 'bench press'? [Y/n]" in result.output
+        assert BENCH_PRESS_SUGGESTION in result.output
 
     def test_does_not_show_suggestion_when_name_has_no_close_match(self) -> None:
         result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
-        assert "Did you mean 'bench press'? [Y/n]" not in result.output
+        assert BENCH_PRESS_SUGGESTION not in result.output
 
     def test_rejects_negative_reps(self) -> None:
         result = runner.invoke(
@@ -311,7 +319,7 @@ class TestWeek:
         [
             pytest.param(
                 date.fromisoformat("2026-10-19"),
-                id="first_day_of_the_week",
+                id="first day of the week",
             ),
             pytest.param(
                 date.fromisoformat("2026-10-22"),
@@ -319,7 +327,7 @@ class TestWeek:
             ),
             pytest.param(
                 date.fromisoformat("2026-10-25"),
-                id="last_day_of_the_week",
+                id="last day of the week",
             ),
         ],
     )
@@ -339,11 +347,11 @@ class TestWeek:
         [
             pytest.param(
                 date.fromisoformat("2026-10-18"),
-                id="day_before_week_starts",
+                id="day before week starts",
             ),
             pytest.param(
                 date.fromisoformat("2026-10-26"),
-                id="day_after_week_ends",
+                id="day after week ends",
             ),
         ],
     )
@@ -372,11 +380,11 @@ class TestWeek:
     @pytest.mark.parametrize(
         ("logged_first", "logged_second", "best"),
         [
-            pytest.param((100, 10), (200, 5), (200, 5), id="heavier_set_second"),
+            pytest.param((100, 10), (200, 5), (200, 5), id="heavier set second"),
             pytest.param(
-                (100, 10), (100, 12), (100, 12), id="using_reps_as_tie_breaker"
+                (100, 10), (100, 12), (100, 12), id="using reps as tie breaker"
             ),
-            pytest.param((200, 5), (100, 10), (200, 5), id="lighter_set_second"),
+            pytest.param((200, 5), (100, 10), (200, 5), id="lighter set second"),
         ],
     )
     def test_best_set_selection(
@@ -399,7 +407,7 @@ class TestWeek:
                 "Bench Press",
                 str(best[0]),
                 str(best[1]),
-                "Sat Oct 24",
+                TODAY.strftime("%a %b %-d"),
             ]
         ]
 
@@ -417,8 +425,8 @@ class TestWeek:
 
         rows = get_output_table_rows(result.output)
         assert rows == [
-            ["Bench Press", "200", "10", "Sat Oct 24"],
-            ["Squat", "400", "10", "Sat Oct 24"],
+            ["Bench Press", "200", "10", TODAY.strftime("%a %b %-d")],
+            ["Squat", "400", "10", TODAY.strftime("%a %b %-d")],
         ]
 
 
