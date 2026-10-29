@@ -75,7 +75,7 @@ See this week's total volume and best set per exercise:
 uv run tracker week
 ```
 
-The week runs Monday to Sunday. Volume is weight × reps, summed across all sets. Your best set is your heaviest one, with ties going to the set with more reps.
+The week runs Monday to Sunday. Volume is weight × reps, summed across all sets. Your best set is your heaviest one. If two sets tie on weight, the one with more reps wins; if they also tie on reps, the earlier one wins.
 
 Run `uv run tracker <command> --help` for all options on a given command.
 
