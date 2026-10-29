@@ -107,7 +107,7 @@ def main(
 def non_negative_number(value: float) -> float:
     """Reject negative or non-finite numbers.
 
-    Used as a Typer callback for weight and reps.
+    Used as a Typer callback for weight, reps and limit.
 
     Args:
         value: The number the user typed.
@@ -259,14 +259,16 @@ def week(
 @app.command()
 def recent(
     ctx: typer.Context,
-    limit: Annotated[int, typer.Option(help="Number of sets to show.")] = 10,
+    limit: Annotated[
+        int, typer.Option(callback=non_negative_number, help="Number of sets to show.")
+    ] = 10,
 ) -> None:
     """Show your most recent sets, newest first."""
     config = _as_cli_config(ctx.obj)
 
     sets = db.get_recent_sets(config.db_path, limit)
 
-    if not sets:
+    if not sets and limit != 0:
         rich_print("No sets logged yet.")
     else:
         show_table(f"Last {len(sets)} set{'s' if len(sets) != 1 else ''}", sets)

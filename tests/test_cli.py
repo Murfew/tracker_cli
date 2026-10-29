@@ -537,3 +537,26 @@ class TestRecent:
 
         title_line = result.output.splitlines()[0].strip()
         assert title_line == title
+
+    @pytest.mark.parametrize(
+        ("limit", "message"),
+        [
+            pytest.param(-1, NON_NEGATIVE_ERROR, id="negative"),
+            pytest.param(nan, "'nan' is not a valid int.", id="nan"),
+            pytest.param(2.5, "'2.5' is not a valid int.", id="fraction"),
+        ],
+    )
+    def test_rejects_invalid_limit(self, limit: float, message: str) -> None:
+        result = runner.invoke(app, ["recent", "--limit", str(limit)])
+        assert result.exit_code == 2
+        assert f"Invalid value for '--limit': {message}" in result.output
+
+    def test_limit_zero_shows_empty_table(self) -> None:
+        result = runner.invoke(app, ["recent", "--limit", "0"])
+        assert result.exit_code == 0
+
+        title = result.output.splitlines()[0].strip()
+        assert title == "Last 0 sets"
+
+        table_rows = get_output_table_rows(result.output)
+        assert len(table_rows) == 0
