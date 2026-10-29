@@ -2,11 +2,12 @@ import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import date
+from pathlib import Path
 from typing import NamedTuple
 
 
 @contextmanager
-def get_connection(db_path: str) -> Generator[sqlite3.Connection]:
+def get_connection(db_path: Path) -> Generator[sqlite3.Connection]:
     """Open a connection with foreign keys enforced, as one transaction.
 
     The transaction commits if the block finishes and rolls back if it raises.
@@ -67,7 +68,7 @@ def _to_logged_set(row: tuple[str, float, int, str]) -> LoggedSet:
     return LoggedSet(name, weight, reps, date.fromisoformat(day))
 
 
-def init_db(db_path: str) -> None:
+def init_db(db_path: Path) -> None:
     """Create the `exercises` and `sets` tables if they don't exist yet.
 
     Safe to call on every run: existing tables and data are left alone.
@@ -98,7 +99,7 @@ def init_db(db_path: str) -> None:
         )
 
 
-def create_exercise(db_path: str, name: str) -> ExerciseRow | None:
+def create_exercise(db_path: Path, name: str) -> ExerciseRow | None:
     """Add an exercise.
 
     Args:
@@ -120,7 +121,7 @@ def create_exercise(db_path: str, name: str) -> ExerciseRow | None:
             return _to_exercise_row(cur.fetchone())
 
 
-def get_exercise_by_name(db_path: str, name: str) -> ExerciseRow | None:
+def get_exercise_by_name(db_path: Path, name: str) -> ExerciseRow | None:
     """Look up one exercise by name, ignoring letter case.
 
     Args:
@@ -138,7 +139,7 @@ def get_exercise_by_name(db_path: str, name: str) -> ExerciseRow | None:
         return _to_exercise_row(row) if row else None
 
 
-def get_exercises(db_path: str) -> list[ExerciseRow]:
+def get_exercises(db_path: Path) -> list[ExerciseRow]:
     """Return every registered exercise.
 
     Args:
@@ -153,7 +154,7 @@ def get_exercises(db_path: str) -> list[ExerciseRow]:
 
 
 def create_set(
-    db_path: str, weight: float, reps: int, day: date, exercise_id: int
+    db_path: Path, weight: float, reps: int, day: date, exercise_id: int
 ) -> None:
     """Save one set.
 
@@ -171,7 +172,7 @@ def create_set(
         )
 
 
-def get_recent_sets(db_path: str, limit: int) -> list[LoggedSet]:
+def get_recent_sets(db_path: Path, limit: int) -> list[LoggedSet]:
     """Return the most recently done sets.
 
     Args:
@@ -193,13 +194,13 @@ def get_recent_sets(db_path: str, limit: int) -> list[LoggedSet]:
         return [_to_logged_set(row) for row in rows]
 
 
-def get_sets_in_date_range(db_path: str, start: str, end: str) -> list[LoggedSet]:
+def get_sets_in_date_range(db_path: Path, start: date, end: date) -> list[LoggedSet]:
     """Return every set done between two dates, inclusive.
 
     Args:
         db_path: Path to the SQLite database file.
-        start: First day of the range, as an ISO date (YYYY-MM-DD).
-        end: Last day of the range, as an ISO date (YYYY-MM-DD).
+        start: First day of the range.
+        end: Last day of the range.
 
     Returns:
         Sets in the range, in no particular order.
@@ -210,6 +211,6 @@ def get_sets_in_date_range(db_path: str, start: str, end: str) -> list[LoggedSet
             SELECT name, weight, reps, day FROM sets JOIN exercises ON sets.exercise_id = exercises.id
             WHERE day BETWEEN ? AND ?
             """,
-            (start, end),
+            (start.isoformat(), end.isoformat()),
         ).fetchall()
         return [_to_logged_set(row) for row in rows]

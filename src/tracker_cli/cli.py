@@ -1,9 +1,10 @@
 import math
+import sqlite3
 from datetime import date, datetime
+from pathlib import Path
 from typing import Annotated, NamedTuple
 
 import typer
-from rich import print as rich_print
 from rich.console import Console
 from rich.table import Table
 
@@ -15,11 +16,14 @@ from tracker_cli.stats import (
     get_week_range,
 )
 
+console = Console()
+
 app = typer.Typer()
 exercises_app = typer.Typer(help="Manage the exercises you can log sets for.")
 app.add_typer(exercises_app, name="exercise")
 
-console = Console()
+UPPER_BOUND = 1000
+DATABASE_PATH = Path(typer.get_app_dir("tracker-cli")) / "app.db"
 
 
 class CliConfig(NamedTuple):
@@ -29,7 +33,7 @@ class CliConfig(NamedTuple):
         db_path: Path to the SQLite database file.
     """
 
-    db_path: str
+    db_path: Path
 
 
 def _as_cli_config(value: object) -> CliConfig:
@@ -50,7 +54,7 @@ def _as_cli_config(value: object) -> CliConfig:
     return value
 
 
-def show_table(title: str, sets: list[db.LoggedSet]) -> None:
+def _show_table(title: str, sets: list[db.LoggedSet]) -> None:
     """Print sets as a table with exercise, weight, reps and date columns.
 
     Args:
@@ -90,21 +94,43 @@ def get_today() -> date:
 def main(
     ctx: typer.Context,
     db_path: Annotated[
-        str,
+        Path,
         typer.Option(
             "--db",
             envvar="APP_DB_PATH",
             help="Path to the SQLite database file. Put it before the command.",
         ),
-    ] = "app.db",
+    ] = DATABASE_PATH,
 ) -> None:
-    """Track your lifts from the terminal."""
+    """Track your lifts from the terminal.
+
+    Your sets are saved in a database file in your user app folder, which
+    is created the first time you run a command. To keep the database
+    somewhere else, pass --db or set APP_DB_PATH.
+    """  # ruff: ignore[docstring-missing-exception]
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError as err:
+        console.print(
+            f"[red]×[/red] Error: Insufficient OS permissions to create this directory. Path: {db_path}"  # ruff: ignore[ambiguous-unicode-character-string]
+        )
+        raise typer.Exit(1) from err
+    except FileExistsError as err:
+        console.print(
+            f"[red]×[/red] Error: A regular file already exists at this exact path location. Path: {db_path}"  # ruff: ignore[ambiguous-unicode-character-string]
+        )
+        raise typer.Exit(1) from err
+
     ctx.obj = CliConfig(db_path)
 
-    db.init_db(db_path)
+    try:
+        db.init_db(db_path)
+    except sqlite3.DatabaseError as err:
+        console.print("[red]×[/red] Error: Unable to connect to database.")  # ruff: ignore[ambiguous-unicode-character-string]
+        raise typer.Exit(1) from err
 
 
-def non_negative_number(value: float) -> float:
+def _non_negative_number(value: float) -> float:
     """Reject negative or non-finite numbers.
 
     Used as a Typer callback for weight, reps and limit.
@@ -123,7 +149,40 @@ def non_negative_number(value: float) -> float:
     return value
 
 
-def non_empty_lowercase_string(value: str) -> str:
+def _number_less_than_or_equal_to_upper_bound(value: float) -> float:
+    """Reject numbers above `UPPER_BOUND`, to catch typos like 2250 for 225.
+
+    Args:
+        value: The number the user typed.
+
+    Returns:
+        The value, unchanged.
+
+    Raises:
+        typer.BadParameter: If value is greater than `UPPER_BOUND`.
+    """
+    if value > UPPER_BOUND:
+        raise typer.BadParameter(f"Value must be at most {UPPER_BOUND}.")
+    return value
+
+
+def _validate_number(value: float) -> float:
+    """Run every number check. Used as a Typer callback for weight, reps and limit.
+
+    Args:
+        value: The number the user typed.
+
+    Returns:
+        The value, unchanged.
+
+    Raises:
+        typer.BadParameter: If value is negative, infinite, NaN, or greater
+            than `UPPER_BOUND`.
+    """  # ruff: ignore[docstring-extraneous-exception]
+    return _number_less_than_or_equal_to_upper_bound(_non_negative_number(value))
+
+
+def _non_empty_lowercase_string(value: str) -> str:
     """Reject blank text and normalise the rest. Used as a Typer callback for names.
 
     Args:
@@ -146,7 +205,7 @@ def add(
     name: Annotated[
         str,
         typer.Argument(
-            callback=non_empty_lowercase_string,
+            callback=_non_empty_lowercase_string,
             help='Exercise name, e.g. "bench press". Quote names with spaces.',
         ),
     ],
@@ -157,10 +216,12 @@ def add(
     exercise = db.create_exercise(config.db_path, name)
 
     if exercise is None:
-        rich_print(f"[red]×[/red] {name.title()} is already registered.")  # ruff: ignore[ambiguous-unicode-character-string]
+        console.print(f"[red]×[/red] {name.title()} is already registered.")  # ruff: ignore[ambiguous-unicode-character-string]
         raise typer.Exit(1)
 
-    rich_print(f"[green]✓[/green] Added {name.title()}. You can now log sets for it.")
+    console.print(
+        f"[green]✓[/green] Added {name.title()}. You can now log sets for it."
+    )
 
 
 @app.command()
@@ -169,15 +230,15 @@ def log(
     name: Annotated[
         str,
         typer.Argument(
-            callback=non_empty_lowercase_string,
+            callback=_non_empty_lowercase_string,
             help='Exercise name, e.g. "bench press". Quote names with spaces.',
         ),
     ],
     weight: Annotated[
-        float, typer.Option(callback=non_negative_number, help="Weight lifted, in lbs.")
+        float, typer.Option(callback=_validate_number, help="Weight lifted, in lbs.")
     ],
     reps: Annotated[
-        int, typer.Option(callback=non_negative_number, help="Number of reps.")
+        int, typer.Option(callback=_validate_number, help="Number of reps.")
     ],
     day: Annotated[
         datetime | None,
@@ -201,25 +262,20 @@ def log(
 
     # get_closest_match returns the name itself for an exact match, a different
     # registered name for a close match, or None when nothing is close.
-    # Only an exact match, or a close match the user confirms, gets logged.
+    # Only an exact match gets logged.
     if name_match != name:
-        rich_print("[red]×[/red] Exercise does not exist.")  # ruff: ignore[ambiguous-unicode-character-string]
+        console.print("[red]×[/red] Exercise does not exist.")  # ruff: ignore[ambiguous-unicode-character-string]
+        if name_match is not None:
+            console.print(f"Did you mean '{name_match}'?")
 
-    if name_match is None:
         raise typer.Exit(1)
 
-    if name_match == name or typer.confirm(
-        f"Did you mean '{name_match}'?", default=True
-    ):
-        exercise = exercises_by_name[name_match]
-    else:
-        raise typer.Exit(1)
-
+    exercise = exercises_by_name[name_match]
     day_as_date = get_today() if day is None else day.date()
 
     db.create_set(config.db_path, weight, reps, day_as_date, exercise.id)
 
-    rich_print(
+    console.print(
         f"[green]✓[/green] Logged {exercise.name.title()}: {weight:g} lbs × {reps}"  # ruff: ignore[ambiguous-unicode-character-string]
     )
 
@@ -239,19 +295,17 @@ def week(
 
     start_of_week, end_of_week = get_week_range(get_today())
 
-    sets = db.get_sets_in_date_range(
-        config.db_path, str(start_of_week), str(end_of_week)
-    )
+    sets = db.get_sets_in_date_range(config.db_path, start_of_week, end_of_week)
 
     if not sets:
-        rich_print("No sets logged this week yet.")
+        console.print("No sets logged this week yet.")
     else:
         volume = get_volume(sets)
-        rich_print(f"Total volume this week: [bold]{volume:,g}[/bold] lbs")
+        console.print(f"Total volume this week: [bold]{volume:,g}[/bold] lbs")
 
         best_sets = get_best_sets(sets)
 
-        show_table(
+        _show_table(
             f"Best sets · {start_of_week.strftime('%b %-d')} – {end_of_week.strftime('%b %-d')}",  # ruff: ignore[ambiguous-unicode-character-string]
             best_sets,
         )
@@ -261,7 +315,7 @@ def week(
 def recent(
     ctx: typer.Context,
     limit: Annotated[
-        int, typer.Option(callback=non_negative_number, help="Number of sets to show.")
+        int, typer.Option(callback=_validate_number, help="Number of sets to show.")
     ] = 10,
 ) -> None:
     """Show your most recent sets, newest first."""
@@ -270,6 +324,6 @@ def recent(
     sets = db.get_recent_sets(config.db_path, limit)
 
     if not sets and limit != 0:
-        rich_print("No sets logged yet.")
+        console.print("No sets logged yet.")
     else:
-        show_table(f"Last {len(sets)} set{'s' if len(sets) != 1 else ''}", sets)
+        _show_table(f"Last {len(sets)} set{'s' if len(sets) != 1 else ''}", sets)
