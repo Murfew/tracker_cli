@@ -1,3 +1,4 @@
+import math
 from datetime import date, datetime
 from typing import Annotated, NamedTuple
 
@@ -104,7 +105,9 @@ def main(
 
 
 def non_negative_number(value: float) -> float:
-    """Reject negative numbers. Used as a Typer callback for weight and reps.
+    """Reject negative or non-finite numbers.
+
+    Used as a Typer callback for weight and reps.
 
     Args:
         value: The number the user typed.
@@ -113,10 +116,10 @@ def non_negative_number(value: float) -> float:
         The value, unchanged.
 
     Raises:
-        typer.BadParameter: If `value` is less than zero.
+        typer.BadParameter: If value is negative, infinite, or NaN.
     """
-    if value < 0:
-        raise typer.BadParameter("Value must not be negative.")
+    if not math.isfinite(value) or value < 0:
+        raise typer.BadParameter("Value must be a finite number, zero or greater.")
     return value
 
 

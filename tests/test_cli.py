@@ -1,5 +1,6 @@
 import re
 from datetime import date
+from math import inf, nan
 from pathlib import Path
 from typing import Protocol
 
@@ -13,6 +14,7 @@ from tracker_cli.cli import app
 runner = CliRunner()
 
 TODAY = date.fromisoformat("2026-10-24")
+NON_NEGATIVE_ERROR = "Value must be a finite number, zero or greater."
 BENCH_PRESS_SUGGESTION = "Did you mean 'bench press'? [Y/n]"
 
 
@@ -280,23 +282,74 @@ class TestLog:
         result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
         assert BENCH_PRESS_SUGGESTION not in result.output
 
-    def test_rejects_negative_reps(self) -> None:
+    @pytest.mark.parametrize(
+        ("weight", "reps", "option", "message"),
+        [
+            pytest.param(
+                -1,
+                8,
+                "--weight",
+                NON_NEGATIVE_ERROR,
+                id="negative weight",
+            ),
+            pytest.param(
+                -0.5,
+                8,
+                "--weight",
+                NON_NEGATIVE_ERROR,
+                id="negative fraction weight",
+            ),
+            pytest.param(
+                nan,
+                8,
+                "--weight",
+                NON_NEGATIVE_ERROR,
+                id="nan weight",
+            ),
+            pytest.param(
+                inf,
+                8,
+                "--weight",
+                NON_NEGATIVE_ERROR,
+                id="inf weight",
+            ),
+            pytest.param(
+                185,
+                -1,
+                "--reps",
+                NON_NEGATIVE_ERROR,
+                id="negative reps",
+            ),
+            pytest.param(
+                185, nan, "--reps", "'nan' is not a valid int.", id="nan reps"
+            ),
+            pytest.param(
+                185, 1.5, "--reps", "'1.5' is not a valid int.", id="fraction reps"
+            ),
+        ],
+    )
+    def test_rejects_invalid_weight_or_reps(
+        self, weight: float, reps: int, option: str, message: str
+    ) -> None:
         result = runner.invoke(
-            app, ["log", "banch press", "--weight", "185", "--reps", "-10"]
+            app,
+            ["log", "bench press", "--weight", str(weight), "--reps", str(reps)],
         )
         assert result.exit_code == 2
-        assert (
-            "Invalid value for '--reps': Value must not be negative." in result.output
-        )
+        assert f"Invalid value for '{option}': {message}" in result.output
 
-    def test_rejects_negative_weight(self) -> None:
+    @pytest.mark.parametrize(
+        ("weight", "reps"),
+        [
+            pytest.param(0, 8, id="zero weight"),
+            pytest.param(185, 0, id="zero reps"),
+        ],
+    )
+    def test_accepts_zero_boundary(self, weight: float, reps: int) -> None:
         result = runner.invoke(
-            app, ["log", "banch press", "--weight", "-185", "--reps", "10"]
+            app, ["log", "bench press", "--weight", str(weight), "--reps", str(reps)]
         )
-        assert result.exit_code == 2
-        assert (
-            "Invalid value for '--weight': Value must not be negative." in result.output
-        )
+        assert result.exit_code == 0
 
 
 class TestWeek:
