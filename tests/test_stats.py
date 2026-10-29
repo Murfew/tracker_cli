@@ -96,13 +96,43 @@ class TestGetBestSets:
             ),
             pytest.param(
                 [
+                    LoggedSet("bench press", 100, 10, LATER_DAY),
+                    LoggedSet("bench press", 100, 10, EARLIER_DAY),
+                ],
+                [
+                    LoggedSet("bench press", 100, 10, EARLIER_DAY),
+                ],
+                id="earlier wins full tie when listed last",
+            ),
+            pytest.param(
+                [
                     LoggedSet("bench press", 100, 10, EARLIER_DAY),
                     LoggedSet("bench press", 100, 10, LATER_DAY),
                 ],
                 [
                     LoggedSet("bench press", 100, 10, EARLIER_DAY),
                 ],
-                id="earlier wins full tie",
+                id="earlier wins full tie when listed first",
+            ),
+            pytest.param(
+                [
+                    LoggedSet("bench press", 100, 10, EARLIER_DAY),
+                    LoggedSet("bench press", 200, 10, LATER_DAY),
+                ],
+                [
+                    LoggedSet("bench press", 200, 10, LATER_DAY),
+                ],
+                id="heavier wins even if later",
+            ),
+            pytest.param(
+                [
+                    LoggedSet("bench press", 100, 10, EARLIER_DAY),
+                    LoggedSet("bench press", 100, 12, LATER_DAY),
+                ],
+                [
+                    LoggedSet("bench press", 100, 12, LATER_DAY),
+                ],
+                id="more reps wins even if later",
             ),
         ],
     )

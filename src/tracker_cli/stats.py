@@ -16,11 +16,28 @@ def get_volume(sets: list[LoggedSet]) -> float:
     return sum(logged_set.weight * logged_set.reps for logged_set in sets)
 
 
+def _rank(logged_set: LoggedSet) -> tuple[float, int, int]:
+    """Score a set so that a better set gets a bigger score.
+
+    Scores compare by weight first, then reps, then day. The day is negated
+    so that an earlier date scores higher.
+
+    Args:
+        logged_set: The set to score.
+
+    Returns:
+        A tuple of (weight, reps, negated day), meant for comparing with
+        `<` or `>`, not for display.
+    """
+    return (logged_set.weight, logged_set.reps, -logged_set.day.toordinal())
+
+
 def get_best_sets(sets: list[LoggedSet]) -> list[LoggedSet]:
     """Find the best set for each exercise.
 
     The best set is the heaviest weight lifted, with ties broken by most reps.
-    If two sets tie on both, the earlier one in `sets` wins.
+    If two sets tie on both, the one done on the earlier day wins. If they
+    were also done on the same day, the first one in `sets` wins.
 
     Args:
         sets: Sets to search, for any number of exercises.
@@ -30,15 +47,10 @@ def get_best_sets(sets: list[LoggedSet]) -> list[LoggedSet]:
     """
     best: dict[str, LoggedSet] = {}
     for logged_set in sets:
-        if logged_set.exercise_name not in best:
+        current = best.get(logged_set.exercise_name)
+
+        if current is None or _rank(current) < _rank(logged_set):
             best[logged_set.exercise_name] = logged_set
-        else:
-            current_best = best[logged_set.exercise_name]
-            if (
-                current_best.weight == logged_set.weight
-                and current_best.reps < logged_set.reps
-            ) or (current_best.weight < logged_set.weight):
-                best[logged_set.exercise_name] = logged_set
 
     return list(best.values())
 
