@@ -55,7 +55,7 @@ Did you mean 'bench press'? [Y/n]: y
 ✓ Logged Bench Press: 185 lbs × 8
 ```
 
-Weight and reps can't be negative.
+Weight, reps and `--limit` must be between 0 and 1000; the cap catches typos like 2250 for 225.
 
 Log a set for a past date:
 
@@ -81,8 +81,7 @@ Run `uv run tracker <command> --help` for all options on a given command.
 
 ## Where your data lives
 
-Exercises and sets are stored in a local SQLite file, `app.db`, in the directory you run the command from.
-To use a different file, pass `--db` before the command, or set `APP_DB_PATH`:
+Exercises and sets are stored in a SQLite file in your user app folder (`~/.config/tracker-cli/app.db on Linux`), which is created the first time you run a command. To use a different file, pass `--db` before the command, or set `APP_DB_PATH`:
 
 ```bash
 uv run tracker --db ~/lifts.db recent
