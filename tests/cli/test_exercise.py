@@ -38,7 +38,7 @@ def test_rejects_duplicate_exercise(runner: CliRunner, duplicate: str) -> None:
     runner.invoke(app, ["exercise", "add", "bench press"])
     result = runner.invoke(app, ["exercise", "add", duplicate])
     assert result.exit_code == 1
-    assert "× Bench Press is already registered." in result.output  # ruff: ignore[ambiguous-unicode-character-string]
+    assert "× Bench Press is already registered." in result.output
 
 
 def test_duplicate_is_not_saved_twice(runner: CliRunner, temp_db: Path) -> None:

@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 from tracker_cli import db
 from tracker_cli.cli import app
 
-DATABASE_ERROR = "× Error: Unable to connect to database."  # ruff: ignore[ambiguous-unicode-character-string]
+DATABASE_ERROR = "as a database. Check the path, or pass --db to use another file."
 
 
 def _file_blocking_parent_folder(folder: Path) -> Path:
@@ -50,7 +50,7 @@ def test_db_option_overrides_env_var(
     [
         pytest.param(
             _file_blocking_parent_folder,
-            "× Error: A regular file already exists at this exact path location.",  # ruff: ignore[ambiguous-unicode-character-string]
+            "a file is in the way of one of its folders.",
             id="file where parent folder should be",
         ),
         pytest.param(

@@ -112,12 +112,12 @@ def main(
         db_path.parent.mkdir(parents=True, exist_ok=True)
     except PermissionError as err:
         console.print(
-            f"[red]×[/red] Error: Insufficient OS permissions to create this directory. Path: {db_path}"  # ruff: ignore[ambiguous-unicode-character-string]
+            f"[red]×[/red] Can't create the folder for {db_path}: permission denied. Pass --db to use another location."
         )
         raise typer.Exit(1) from err
     except FileExistsError as err:
         console.print(
-            f"[red]×[/red] Error: A regular file already exists at this exact path location. Path: {db_path}"  # ruff: ignore[ambiguous-unicode-character-string]
+            f"[red]×[/red] Can't create {db_path}: a file is in the way of one of its folders."
         )
         raise typer.Exit(1) from err
 
@@ -126,7 +126,9 @@ def main(
     try:
         db.init_db(db_path)
     except sqlite3.DatabaseError as err:
-        console.print("[red]×[/red] Error: Unable to connect to database.")  # ruff: ignore[ambiguous-unicode-character-string]
+        console.print(
+            f"[red]×[/red] Can't open {db_path} as a database. Check the path, or pass --db to use another file."
+        )
         raise typer.Exit(1) from err
 
 
@@ -216,7 +218,7 @@ def add(
     exercise = db.create_exercise(config.db_path, name)
 
     if exercise is None:
-        console.print(f"[red]×[/red] {name.title()} is already registered.")  # ruff: ignore[ambiguous-unicode-character-string]
+        console.print(f"[red]×[/red] {name.title()} is already registered.")
         raise typer.Exit(1)
 
     console.print(
@@ -256,7 +258,7 @@ def log(
     config = _as_cli_config(ctx.obj)
     exercises = db.get_exercises(config.db_path)
     exercises_by_name = {exercise.name: exercise for exercise in exercises}
-    exercise_names = list(exercises_by_name.keys())
+    exercise_names = list(exercises_by_name)
 
     name_match = get_closest_match(name, exercise_names)
 
@@ -264,7 +266,7 @@ def log(
     # registered name for a close match, or None when nothing is close.
     # Only an exact match gets logged.
     if name_match != name:
-        console.print("[red]×[/red] Exercise does not exist.")  # ruff: ignore[ambiguous-unicode-character-string]
+        console.print("[red]×[/red] Exercise does not exist.")
         if name_match is not None:
             console.print(f"Did you mean '{name_match}'?")
 
@@ -276,7 +278,7 @@ def log(
     db.create_set(config.db_path, weight, reps, day_as_date, exercise.id)
 
     console.print(
-        f"[green]✓[/green] Logged {exercise.name.title()}: {weight:g} lbs × {reps}"  # ruff: ignore[ambiguous-unicode-character-string]
+        f"[green]✓[/green] Logged {exercise.name.title()}: {weight:g} lbs × {reps}"
     )
 
 
@@ -290,7 +292,7 @@ def week(
     summed across all sets. Your best set is your heaviest one.
     If two sets tie on weight, the one with more reps wins;
     if they also tie on reps, the earlier one wins.
-    """  # ruff: ignore[ambiguous-unicode-character-docstring]
+    """
     config = _as_cli_config(ctx.obj)
 
     start_of_week, end_of_week = get_week_range(get_today())
@@ -306,7 +308,7 @@ def week(
         best_sets = get_best_sets(sets)
 
         _show_table(
-            f"Best sets · {start_of_week.strftime('%b %-d')} – {end_of_week.strftime('%b %-d')}",  # ruff: ignore[ambiguous-unicode-character-string]
+            f"Best sets · {start_of_week.strftime('%b %-d')} – {end_of_week.strftime('%b %-d')}",
             best_sets,
         )
 

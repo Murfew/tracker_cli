@@ -12,7 +12,7 @@ def get_volume(sets: list[LoggedSet]) -> float:
 
     Returns:
         Total volume in lbs, or 0 if there are no sets.
-    """  # ruff: ignore[ambiguous-unicode-character-docstring]
+    """
     return sum(logged_set.weight * logged_set.reps for logged_set in sets)
 
 

@@ -19,7 +19,7 @@ def test_prints_success_message_with_title_cased_name(runner: CliRunner) -> None
         app, ["log", "bench press", "--weight", "185", "--reps", "8"]
     )
     assert result.exit_code == 0
-    assert "✓ Logged Bench Press: 185 lbs × 8" in result.output  # ruff: ignore[ambiguous-unicode-character-string]
+    assert "✓ Logged Bench Press: 185 lbs × 8" in result.output
 
 
 @pytest.mark.parametrize(
@@ -141,7 +141,7 @@ def test_rejects_missing_required_option(
 def test_rejects_unknown_exercise(runner: CliRunner) -> None:
     result = runner.invoke(app, ["log", "squat", "--weight", "185", "--reps", "12"])
     assert result.exit_code == 1
-    assert "× Exercise does not exist." in result.output  # ruff: ignore[ambiguous-unicode-character-string]
+    assert "× Exercise does not exist." in result.output
 
 
 def test_unknown_exercise_is_not_saved(runner: CliRunner, temp_db: Path) -> None:
