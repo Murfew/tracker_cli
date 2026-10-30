@@ -31,7 +31,6 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "mypy>=2.4.0",
-    "pydantic>=2.14.1",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
@@ -89,6 +88,7 @@ ignore = [
     "single-line-implicit-string-concatenation", # conflict with ruff format, per Ruff's own docs
 ]
 preview = true
+allowed-confusables = ["×", "–"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
@@ -121,13 +121,7 @@ enable_error_code = [
     "possibly-undefined",
     "explicit-override",
 ]
-plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
 
-[tool.pydantic-mypy]
-init_forbid_extra = true
-init_typed = true
-warn_required_dynamic_aliases = true
 
 # ─── pytest ──────────────────────────────────────────────────────────────────
 
